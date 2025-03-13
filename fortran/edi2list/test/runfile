@@ -1,0 +1,27 @@
+! this is a test runfile for edi2list
+! written by Bo Yang, 2014/01/10.
+
+! the edi list file name.
+EDILIST: edi.list
+
+! the frequency list file name, the output data file will convert freq to period
+FREQLIST: freq.list
+
+! output data file name
+OUTFILE: out.dat
+
+! data type.
+DataType: Off_Diagonal_Impedance
+
+! define the origin.
+Origin: 43.0 -90.0
+
+! define the error floor.
+ErrorFloor: 0.05
+
+! define the set error floor method.
+!  Method = 1 : perc*sqrt(|Zxy*Zyx|) for all 4 components.
+!  Method = 2 : perc*|Zxy| for Zxx & Zxy, perc*|Zyx| for Zyx & Zyy.
+!  Method = 3 : method 2 for Zxy & Zyx, method 1 for Zxx & Zyy.
+!  Method = 4 : sqrt(det(Z)) for all 4 components.
+SetErrorFloorMethod: 1
