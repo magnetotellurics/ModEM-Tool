@@ -1,0 +1,189 @@
+**********************************************************************
+>>>>>>>>>>>>          Forward Modelling               <<<<<<<<<<<<<<<<
+**********************************************************************
+>>> fwdPred
+Computes predicted data for conductivity sigma0
+
+Usage: [dOut] = fwdPred(sigma0,dIn);
+  
+  Inputs:	sigma0 = conductivity parameter (structure)
+		dIn = data vector (cell array of structures)
+  Output:	dOut = predicted data vector (cell array of structures)
+  Need to create scratch directory, write grid file (scratch/Input.grd)
+   before calling this function
+**********************************************************************
+
+
+
+
+**********************************************************************
+>>>>>>>>>>>>   Sensitivity Matrix Operations Using J  <<<<<<<<<<<<<<<<
+**********************************************************************
+>>> makeSens
+Makes sensitivity matrix for 2D MT problem and returns cell array
+of conductivity parameters, one for each real data
+
+Usage: [J,header] = makeSens(sigma0,d);
+  
+  Inputs:	sigma0 = conductivity parameter (structure)
+		d = data vector (cell array of structures)
+  Output:	J = sensitivity matrix (cell array of
+		      conductivity parameter structures)
+  Need to create scratch directory, write grid file (Input.grd)
+   before calling this function
+**********************************************************************
+
+**********************************************************************
+>>> J_times_m
+Compute Jacobian-model parameter product (Jm),  using full Jacobian J,
+computed using makeSens and stored as global structure
+
+Usage : [J] = J_times_m(m,d);
+    m is model parameter to multiply by J;  d is only used as a template
+    for initializing output vector (stored as cell array of structures)
+    sensitivity matrix is assumed consistent with d, and is global 
+    structure, already defined.
+
+**********************************************************************
+
+**********************************************************************
+>>> J_times_m_MTX
+Multi-transmitter variant on J_times_m: multiplies a
+cell array of model paramters (one for each frequency) by sensitivity 
+matrix, using full Jacobian J stored as global structure. 
+
+Usage : [dOut] = J_times_m_MTX(mIn,d);
+    mIn is input cell array of model parameters;
+    d is template for data vector
+    sensitivity matrix is assumed consistent with d, and is global 
+    structure, already defined.
+
+**********************************************************************
+
+**********************************************************************
+>>> JT_times_d
+Compute Jacobian-data vector product (J^T d),  using full Jacobian J,
+computed using makeSens, and stored as global structure
+
+Usage : [mOut] = JT_times_d(dIn,mIn,NORMALIZE);
+    dIn is input complex data vector
+    NORMALIZE is opitonal; default is to not normalize dIn
+         by Cd^{-1} before multiplying by J^T (Data error variances
+         are stored in dIn)
+    mIn is used as a template for the output
+**********************************************************************
+
+**********************************************************************
+>>> JT_times_d_MTX
+Multi-transmitter variant on JT_times_d ... does not sum over
+frequencies, and also returns "imaginary part";
+
+Usage [g] = JT_times_d_MTX(dIn,mIn,NORMALIZE);
+%   output is a cell array of 2*nTx model parameters
+%    mIn is a template for the output model parameters
+%   Sensitivity J is global (already set)
+**********************************************************************
+
+
+
+
+
+**********************************************************************
+>>>>>>>>>>>>   Direct Sensitivity Matrix Operations   <<<<<<<<<<<<<<<<
+**********************************************************************
+>>> Jmult
+Calcualtes product of sensitivity matrix and conductivity
+parameter perturbation delSigma, by calling fortran program
+CondDataMaps;  This emulates subroutine Jmult in module SensMatrix
+
+Usage: [dOut] = Jmult(delSig,sigma0,dIn,eAll);
+  
+  Inputs:      delSigma = conductivity parameter (structure)
+         	sigma0 = background conductivity parameter (structure)
+		dIn = data vector (cell array of structures; template)
+               eAll is optional (not yet implemented)
+  Output:	dOut = data vector (cell array of structures)
+  Need to create scratch directory, write grid file (Input.grd)
+   before calling this function
+**********************************************************************
+
+**********************************************************************
+>>> Jmult_MTX
+Multi-transmitter variant on Jmult; computes product of J and cell
+array of conductivity parameters, one for each transmitter.
+
+Usage : [dOut] = Jmult_MTX(delSigma,sigma,dIn);
+  Inputs:      delSigma = conductivity parameters (cell array
+                          of structures)
+               sigma0 = background conductivity parameter (structure)
+               dIn = data vector (cell array of structures; template)
+               eAll is optional (not yet implemented)
+  Output:      dOut = data vector (cell array of structures)
+**********************************************************************
+
+**********************************************************************
+>>> JmultT
+Calculates product of transpose of sensitivity matrix with
+data vector, returning a single model paramter, by calling fortran
+program CondDataMaps.
+
+Usage: [m] = JmultT(sigma0,d);
+  
+  Inputs:	sigma0 = conductivity parameter (structure)
+		d = data vector (cell array of structures)
+  Output:	m = conductivcity parameter structure
+         Need to create scratch directory, write grid file (Input.grd)
+          before calling this function
+**********************************************************************
+
+**********************************************************************
+>>> JmultT_MTX
+Multi-transmitter variant on JmultT; Calculates product of transpose 
+of sensitivity matrix with data vector ... this version does not sum 
+output conductivity parameter over frequencies (and returns 
+real/imag parts!)
+
+Usage: [S,header] = JmultT_MTX(sigma0,d);
+  
+  Inputs:	sigma0 = conductivity parameter (structure)
+		d = data vector (cell array of structures)
+  Output:	S = cell array of conductivcity structures
+		header = header written to file by fortran program
+      Need to create scratch directory, write grid file (Input.grd)
+       before calling this function
+**********************************************************************
+
+
+
+
+**********************************************************************
+>>>>>>>>>>>>        Miscellaneous                     <<<<<<<<<<<<<<<<
+**********************************************************************
+
+>>> condCellToMatrix
+Convert cell array of conductivity parameters to a standard
+matlab matrix: column k of the output matrix corresponds
+to the conductivity parameter stored in cell k
+
+Usage: [M] = condCellToMatrix(J);
+**********************************************************************
+
+**********************************************************************
+>>> NormalizeJ
+Normalizes Jacobian structure, outputing
+J_tilde = C_m^{1/2} J C_d^{-1/2} and d_tilde = C_d{-1/2} d
+
+Usage:  [Jtilde] = NormalizeJ(J,CmHalf);
+**********************************************************************
+
+
+
+
+**********************************************************************
+>>>>>>>>>>>>        Test Scripts                     <<<<<<<<<<<<<<<<
+**********************************************************************
+
+**********************************************************************
+script CondDataMapTest : used to test fortran90 program CondDataMap
+Script sensTest is used to test sensitivity calculation in fortran 90
+**********************************************************************

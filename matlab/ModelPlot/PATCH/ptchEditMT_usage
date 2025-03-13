@@ -1,0 +1,161 @@
+The purpose of ptchEditMT is to define a set of "patches" or areas
+within a ModEM conductivity model.   The patches can be of any
+shape, connected or not, but they cannot overlap.
+The idea is that once defined the patches can then be
+used to extract all sites, or all conductivity grid elements,
+that fall in a particular patch.  After using this interactive tool
+to create the patches (with reference to site locations,
+conductivity images) one saves the defined patches
+to a file, and runs other functions or scripts which load this file
+and complete the other tasks.  This just helps define the patches.
+
+ptchEditMT is is a script; it would take some work to make it a function,
+since the GUI needs access to  variables that are defined in this script, 
+after returning control to interface.   This is very "buggy" as it
+has been modified from a program written ~15 years ago, for a very
+different application.   Not all features actually work, and this almost
+certainly cannot be expected to work in conjunction with other concurrently
+running  programs in matlab.   Don't try!  Run this, save the file
+and move on to other tasks.  (In particular, save the patch file,
+and then do the calculations with the patches.  After running these
+other applications DO NOT EXPECT THIS TO WORK WITHOUT RESTARTING!)
+
+As a script  one  needs to set variables modelFile and dataFile before
+running, e.g. 
+>   modelFile = 'Nested_NWUSA_Z_5%_Hz_3%_run3_NLCG_027.rho';
+>   dataFile = 'Z_Hz_5%_3%_22Per_final_Data_set.dat';
+These are names of ModEM model and data files.   These are needed to
+define the grid, and to provide plots of conductivity and site
+locations.
+
+The result of succesfully running this is a data structure (which
+can be saved to a mat file, and then loaded) which contains the
+following elements:
+
+patchStruct = 
+
+     nPatches: 8
+      ll_lims: [235.5050 253.7590 38.8250 48.9860]
+         mask: [100x100 double]
+        names: {8x1 cell}
+    mask_nums: [34 35 36 38 39 40 41 42]
+
+The location of the patches is given by array "mask", which
+represents a uniform grid (in latitude and longitude) with corners
+given by "ll_lims".   Array "mask" is zero except where the set of
+"nPatches" non-overlapping patches are defined.   Grid elements in
+patch number k contain the value "mask_nums(k)".  The name of the
+corresponding patch is given by "names{k}".  Note that the grid 
+that mask is defined on does not correspond to the model grid
+(sorry, but this is what you get from a quick and dirty modification
+of an existing code).   Thus, to use the patch in practice the
+actual model grid needs to be interpolated.   The size of mask
+(presently 100 x 100) could be changed by editing ptchEditMT.
+
+To run the GUI:
+1) define one or more patches. To do this:
+   --> enter the name in the text box beneath the "add" and "del"
+         buttons.   
+   --> click add, and the name will appear in the adjacent list box;
+          the one you have just added will be selected, and the
+          color that will be used to mark this patch on the
+          underlying conductivity image will appear in the strip to
+          the right of the list box.
+   --> enter another name and click add, if you want to create
+       another patch.  You can do this at any time that no other
+       button on the GUI is active, and you can add any (reasonable)
+       number of patches.
+   --> you can delete the active patch (the one selected in the list
+       box) by cliking "del".  This will be removed from the list,
+       and from the conductivity image display.
+
+2)  create/edit a patch.  To do this:
+     --> select the desired patch in the list box.
+     --> click one of the edit buttons:
+         Mask Blk : click and drag to define a rectangular area 
+           that will be added to the patch.
+         Unmask Blk : click and drag to remove a rectangular area
+            from the patch
+         Mask :  left click to add the selected cell to the patch;
+            shift-left click to remove; right click  to terminate
+            point and click editing.  If you screw up and click out 
+            the active area, it beeps, and point and click editing
+            no longer works, but the "Mask" button remains active.
+            click "Mask" again (another beep) and then another
+            button like "Mask Blk" twice (yet another beep) and I
+            think it will be happy again, and you can continue.
+
+3)   save the patch
+    --> click save, and follow the dialogue box.
+
+4)  if you have already saved a patch structure, you can load it by
+clicking the "Read *.pat" button.   Then you can modify the patches,
+and save again.
+
+5)  The editable "Depth" box gives the depth of the conductivity
+image that is displayed.  Edit and hit return to change.
+
+6) The bottom row of buttons is historical, and has not been debugged 
+for this application.   In principal they allow you to zoom in on a part of
+the grid, to make it easier to edit; with mask of size 100 x 100
+this is certainly not needed.   THIS DOES NOT WORK!!!!
+
+
+SOME FUNCTIONS that use patch structures
+
+--> function [k,name] = whichPatch_ll(lat,lon,patchStruct)
+   returns number and name of patch containing point with coordinates (lon,lat)
+       k = 0 is returned if no patch contains this point
+
+   Usage:  [k,name] = whichPatch_ll(lat,lon,patchStruct)
+
+--> function result = depthProfile(CondObj,patchStruct,patchNum)
+
+    Inputs are Cond_xy_ll object containing conductivity model, and patch
+    struture.  Output is structure containing max and min conductivity as a function
+      of depth, azimuthe of maximum conductivity, and some intermediate results.
+     (z is depth in km, xy gives coordinates of points in patch (km), condAvg give
+      the full array of conductivity averages, all depths, all azimuths (which are 
+      listed in TH)
+
+result = 
+
+     condAvg: [43x20 double]
+    sigmaMax: [1x43 double]
+    sigmaMin: [1x43 double]
+    thetaMax: [43x1 double]
+           z: [43x1 double]
+          TH: [1x20 double]
+          xy: [2x360 double]
+    sigPatch: [360x43 double]
+
+SOME SCRIPTS that use patch structures to create plots
+
+--> testExtractSites
+    loads data file, patch file, and then
+    extracts all sites that fall within the patch, and makes a little plot
+    of phases (in the present version both observed and predicted)
+    for off-diagonal components.  Uses TTrFunZ (impedance)
+    transfer function class; could easily modify this to do other things
+
+--> testCondAverage
+     computes (anistropic) average
+     conductivity as a function of depth for a given patch
+     To run: need to specify patch file, model file (which must be
+     consistent, of course), data file (to set lat/lon) + patch number
+
+
+OTHER matlab functions/classes need to run these:
+classes: 
+
+latgrid.m, Cond_xy_ll.m  : these are for converting ModEM grids (in km)
+ to lat and lon, and for making slices for plotting.   These are more general,
+and will (in some version) be part of more generic model plotting tools, but this is
+not really done yet.   Included here.
+
+TTrFunZ, TTransferFunction  : these are now part of ArrayProcessing
+(but probably shouldn't be).   These (and only these) are included from 
+ArrayProcessing for convenience.  These are under active development and will
+have added features soon!
+
+set_lims and other things from EMTF/matlab/ZPLT

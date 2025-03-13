@@ -1,0 +1,1 @@
+a2ps -nP -c InvErrCov.m VecToDataVec.m dataVecToVec.m ipDat.m ipDatFreq.m ipDatNoCov.m linCombDat.m printSource readZ.m writeZ.m CdInv_d.m dotDat.m lengthDat.m minusDat.m mtimesDat.m multAdat.m plusDat.m | lpr -d
