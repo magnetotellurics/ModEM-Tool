@@ -1,0 +1,20 @@
+function [ex,y,z] = rdTE(cfile)
+%  Reads in E solution file
+%  Usage : [ex,y,z] = rdTE(cfile);
+fid = fopen(cfile,'r');
+ll = fread(fid,1,'long');
+nm = fread(fid,2,'long');
+ny1 = nm(1);
+nzb1 = nm(2);
+ll = fread(fid,1,'long');
+ll = fread(fid,1,'long');
+dy = fread(fid,ny1-1,'float64');
+ll = fread(fid,1,'long');
+ll = fread(fid,1,'long');
+dz = fread(fid,nzb1-1,'float64');
+ll = fread(fid,1,'long');
+y = cumsum([0;dy]);
+z = cumsum([0;dz]);
+ll = fread(fid,1,'long');
+temp = fread(fid,[2*ny1,nzb1],'float64');
+ex = temp(1:2:end,:)+ i *temp(2:2:end,:); 

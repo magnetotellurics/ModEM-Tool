@@ -1,0 +1,17 @@
+%  test direct/indirect gradient misfit calc
+%  g should == gI
+DIRECT = 1;
+[g] = gradMisFit(DIRECT);
+[gI] = gradMisFit;
+
+% First step in CG type solution
+% Compute overall penalty functional gradient
+gAll = m{0}; m{0}.v = 0;
+for kk = 1:2:length(g)
+   gAll.v = gAll.v + g{kk}.v;
+end
+
+%  determine range of damping parameters
+alpha = [];
+for kk = 1:length(alpha)
+

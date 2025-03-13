@@ -1,0 +1,27 @@
+function [status] = writeGrid2D(cfile,gridDef)
+% Usage: [status] = writeGrid2D(cfile,gridDef)
+fid = fopen(cfile,'w')
+status = 0;
+ll = 12;
+count = fwrite(fid,ll,'long');
+status = status+4*count;
+Iword = [gridDef.Ny,gridDef.Nz,gridDef.Nza];
+count = fwrite(fid,Iword,'long');
+status = status+4*count;
+count = fwrite(fid,ll,'long');
+status = status+ 4*count;
+ll = 8*gridDef.Ny;
+count = fwrite(fid,ll,'long');
+status = status+ 4*count;
+count = fwrite(fid,gridDef.Dy,'float64');
+status = status+ 8*count;
+count = fwrite(fid,ll,'long');
+status = status+ 4*count;
+ll = 8*gridDef.Nz;
+count = fwrite(fid,ll,'long');
+status = status+ 4*count;
+count = fwrite(fid,gridDef.Dz,'float64');
+status = status+ 8*count;
+count = fwrite(fid,ll,'long');
+status = status+ 4*count;
+fclose(fid);
