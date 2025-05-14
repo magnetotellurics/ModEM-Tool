@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+import math
+import random
+
+import argparse
+
+from PyModEM import ModEMData
+
+
+""" The method given to me by Anna Kelbert """
+def kelbert_method(zxx, zxy, zyx, zyy, percent=0.05, std=1.0):
+    error = math.sqrt(abs(zxy.real) * abs(zyx.real))
+    synth_error = abs(random.gauss(error * percent, sigma=std))
+
+    zxx.error = synth_error
+    zxy.error = synth_error
+    zyx.error = synth_error
+    zyy.error = synth_error
+
+
+""" The method given to me by Hao Dong """
+def dong_method(zxx, zxy, zyx, zyy, percent=0.05, std=1.0):
+    zxy_percent = abs(random.gauss(zxy.real * percent, sigma=std))
+
+    zxx.error = zxy_percent
+    zxy.error = zxy_percent
+
+    zyx_percent = abs(random.gauss(zyx.real * percent, sigma=std))
+
+    zyx.error = zyx_percent
+    zyy.error = zyx_percent
+     
+
+def update_error(data: ModEMData, method : str, percent=0.05, std=1.0): 
+    for period in data.periods:
+        for station in data.stations.values():
+            zxx = station.get_component(period, 'ZXX')
+            zxy = station.get_component(period, 'ZXY')
+            zyx = station.get_component(period, 'ZYX')
+            zyy = station.get_component(period, 'ZYY')
+
+            if method == 'kelbert':
+                kelbert_method(zxx, zxy, zyx, zyy, percent=percent, std=std)
+            elif method == 'dong':
+                dong_method(zxx, zxy, zyx, zyy, percent=percent, std=std)
+
+
+description = "Generate a synthetic error for a ModEM data file"
+parser = argparse.ArgumentParser(prog="Synthetic Error", description=description)
+parser.add_argument('data_fname',
+                    help='Data filename to alter',
+                    type=str)
+parser.add_argument('output_fname',
+                    help='Filename to store the computed synthetic error',
+                    type=str)
+parser.add_argument('-m', '--method',
+                    help='Error method to use either: "[kelbert, dong]"',
+                    type=str,
+                    default='kelbert')
+parser.add_argument('-p', '--percent',
+                    help='Percentage of error to use when calculating error - default 0.05',
+                    type=float,
+                    default=0.05)
+parser.add_argument('-s', '--std',
+                    help='Standard deviation to use when calculating random error - default 1.0',
+                    type=float,
+                    default=1.0)
+
+args = parser.parse_args()
+
+data = ModEMData.ModEMData(args.data_fname)
+
+update_error(data, args.method, percent=args.percent, std=args.std)
+
+data.write_data(args.output_fname, comment=f"# Synthetic error used {args.method}'s method with {args.percent}% and {args.std} std deviation")

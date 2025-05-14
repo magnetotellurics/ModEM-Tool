@@ -1,0 +1,91 @@
+#!/Users/mcurry/venv/modem/bin/python3
+import argparse
+import numpy as np
+
+from PyModEM import ModEMData
+
+description = '''Make ModEM data - with 0 value'''
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('filename', help='Filename to store the data', type=str)
+parser.add_argument('nEast', help='Number of stations in the east direction', type=int)
+parser.add_argument('nNorth', help='Number of staionts in the north direction', type=int)
+parser.add_argument('nPeriods', help='Number of periods for each station (max 10)', type=int)
+parser.add_argument('spacing', help='Spacing between each stations in ew, ns, dir', type=int)
+parser.add_argument('-d', '--datatype', help=f'Data Type: \'{", ".join(ModEMData.DATA_TYPES_3D)}\'', 
+                     type=str,
+                     default='Full_Impedance')
+
+parser.add_argument('-e', '--error', help='Default error for the data', type=float, default=1.0)
+
+args = parser.parse_args()
+
+filename = args.filename
+neast = args.nEast
+nnorth = args.nNorth
+nperiods = args.nPeriods
+spacing = args.spacing
+error = [args.error]
+
+if args.datatype not in ModEMData.DATA_TYPES_3D:
+    raise ValueError(f"Data Type {args.datatype} is not supported. Valid data types: \'{', '.join(ModEMData.DATA_TYPES_3D)}\'")
+
+
+data = ModEMData.ModEMData()
+
+xmax = []
+ymax = []
+
+spacing_x = spacing
+spacing_y = spacing
+
+start = [-spacing_x * neast // 2, -spacing_y // 2]
+location = start.copy()
+
+cnt = 0
+
+periods = np.logspace(-2, 4, nperiods)
+
+for i in range(1, neast + 1):
+    for j in range(1, nnorth + 1):
+        cnt += 1
+        location[1] += spacing_x 
+        station = ModEMData.Station(data=ModEMData.StationData(station_code = str(cnt),
+                                        location_latlon = [0.0, 0.0],
+                                        location_xyz = [location[0], location[1], 0],
+                                        periods = []))
+        for period in periods:
+
+            data_entries = ModEMData.make_period_data_for_datatype(period, args.datatype)
+
+            for data_entry in data_entries:
+                station.add_period(None, data_entry)
+
+            xmax.append(location[0])
+            ymax.append(location[1])
+            data.add_station(station)
+            data.add_period(period)
+
+    location[0] += spacing_y
+    location[1] = start[1]
+
+mid_point = [max(xmax)/2, max(ymax)/2]
+
+full_impedance_header = ModEMData.ModEMDataHeader(
+            header="# Data created by make_modem_data.py",
+            description=ModEMData.DEFAULT_DATA_DESCRIPTION,
+            data_type=f"> {args.datatype}",
+            sign_conversion=ModEMData.DEFAULT_SIGN_CONVENTION,
+            units=ModEMData.DEFAULT_UNITS,
+            orientation=0.0,
+            origin=[0.0, 0.0],
+            nperiods=data.nperiods,
+            nstations=data.nstations
+        )
+
+data.headers.append(full_impedance_header)
+data.write_data(filename, comment="# Data created by make_modem_data.py")
+
+print("Mid point: ", max(xmax)/2, max(ymax)/2)
+print("Data outputed to:", filename)
+print("Ending location:", location)

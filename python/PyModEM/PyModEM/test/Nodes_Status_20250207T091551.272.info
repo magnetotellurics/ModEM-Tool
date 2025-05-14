@@ -1,0 +1,191 @@
+ Total Number of nodes=            7
+   FORWARD  : Send Per. #     1 : Pol #    1 to node #     1
+   FORWARD  : Send Per. #     5 : Pol #    1 to node #     2
+   FORWARD  : Send Per. #     9 : Pol #    1 to node #     3
+   FORWARD  : Send Per. #    13 : Pol #    1 to node #     4
+   FORWARD  : Send Per. #    17 : Pol #    1 to node #     5
+   FORWARD  : Send Per. #    21 : Pol #    1 to node #     6
+   FORWARD  : Send Per. #    25 : Pol #    1 to node #     7
+   FORWARD: Receive Per #     1 and Pol    1      from     1
+   FORWARD: TX finished #     1 out of    60
+   FORWARD  : Sent Per. #    29 : Pol #    1 to node #     1
+   FORWARD: Receive Per #     5 and Pol    1      from     2
+   FORWARD: TX finished #     2 out of    60
+   FORWARD  : Sent Per. #     1 : Pol #    2 to node #     2
+   FORWARD: Receive Per #     9 and Pol    1      from     3
+   FORWARD: TX finished #     3 out of    60
+   FORWARD  : Sent Per. #     5 : Pol #    2 to node #     3
+   FORWARD: Receive Per #    13 and Pol    1      from     4
+   FORWARD: TX finished #     4 out of    60
+   FORWARD  : Sent Per. #     9 : Pol #    2 to node #     4
+   FORWARD: Receive Per #    17 and Pol    1      from     5
+   FORWARD: TX finished #     5 out of    60
+   FORWARD  : Sent Per. #    13 : Pol #    2 to node #     5
+   FORWARD: Receive Per #     1 and Pol    2      from     2
+   FORWARD: TX finished #     6 out of    60
+   FORWARD  : Sent Per. #    17 : Pol #    2 to node #     2
+   FORWARD: Receive Per #     5 and Pol    2      from     3
+   FORWARD: TX finished #     7 out of    60
+   FORWARD  : Sent Per. #    21 : Pol #    2 to node #     3
+   FORWARD: Receive Per #    21 and Pol    1      from     6
+   FORWARD: TX finished #     8 out of    60
+   FORWARD  : Sent Per. #    25 : Pol #    2 to node #     6
+   FORWARD: Receive Per #    25 and Pol    1      from     7
+   FORWARD: TX finished #     9 out of    60
+   FORWARD  : Sent Per. #    29 : Pol #    2 to node #     7
+   FORWARD: Receive Per #     9 and Pol    2      from     4
+   FORWARD: TX finished #    10 out of    60
+   FORWARD  : Sent Per. #     2 : Pol #    1 to node #     4
+   FORWARD: Receive Per #    29 and Pol    1      from     1
+   FORWARD: TX finished #    11 out of    60
+   FORWARD  : Sent Per. #     6 : Pol #    1 to node #     1
+   FORWARD: Receive Per #    13 and Pol    2      from     5
+   FORWARD: TX finished #    12 out of    60
+   FORWARD  : Sent Per. #    10 : Pol #    1 to node #     5
+   FORWARD: Receive Per #     2 and Pol    1      from     4
+   FORWARD: TX finished #    13 out of    60
+   FORWARD  : Sent Per. #    14 : Pol #    1 to node #     4
+   FORWARD: Receive Per #     6 and Pol    1      from     1
+   FORWARD: TX finished #    14 out of    60
+   FORWARD  : Sent Per. #    18 : Pol #    1 to node #     1
+   FORWARD: Receive Per #    10 and Pol    1      from     5
+   FORWARD: TX finished #    15 out of    60
+   FORWARD  : Sent Per. #    22 : Pol #    1 to node #     5
+   FORWARD: Receive Per #    17 and Pol    2      from     2
+   FORWARD: TX finished #    16 out of    60
+   FORWARD  : Sent Per. #    26 : Pol #    1 to node #     2
+   FORWARD: Receive Per #    14 and Pol    1      from     4
+   FORWARD: TX finished #    17 out of    60
+   FORWARD  : Sent Per. #    30 : Pol #    1 to node #     4
+   FORWARD: Receive Per #    21 and Pol    2      from     3
+   FORWARD: TX finished #    18 out of    60
+   FORWARD  : Sent Per. #     2 : Pol #    2 to node #     3
+   FORWARD: Receive Per #    18 and Pol    1      from     1
+   FORWARD: TX finished #    19 out of    60
+   FORWARD  : Sent Per. #     6 : Pol #    2 to node #     1
+   FORWARD: Receive Per #    29 and Pol    2      from     7
+   FORWARD: TX finished #    20 out of    60
+   FORWARD  : Sent Per. #    10 : Pol #    2 to node #     7
+   FORWARD: Receive Per #     2 and Pol    2      from     3
+   FORWARD: TX finished #    21 out of    60
+   FORWARD  : Sent Per. #    14 : Pol #    2 to node #     3
+   FORWARD: Receive Per #    25 and Pol    2      from     6
+   FORWARD: TX finished #    22 out of    60
+   FORWARD  : Sent Per. #    18 : Pol #    2 to node #     6
+   FORWARD: Receive Per #     6 and Pol    2      from     1
+   FORWARD: TX finished #    23 out of    60
+   FORWARD  : Sent Per. #    22 : Pol #    2 to node #     1
+   FORWARD: Receive Per #    22 and Pol    1      from     5
+   FORWARD: TX finished #    24 out of    60
+   FORWARD  : Sent Per. #    26 : Pol #    2 to node #     5
+   FORWARD: Receive Per #    26 and Pol    1      from     2
+   FORWARD: TX finished #    25 out of    60
+   FORWARD  : Sent Per. #    30 : Pol #    2 to node #     2
+   FORWARD: Receive Per #    30 and Pol    1      from     4
+   FORWARD: TX finished #    26 out of    60
+   FORWARD  : Sent Per. #     3 : Pol #    1 to node #     4
+   FORWARD: Receive Per #    10 and Pol    2      from     7
+   FORWARD: TX finished #    27 out of    60
+   FORWARD  : Sent Per. #     7 : Pol #    1 to node #     7
+   FORWARD: Receive Per #    14 and Pol    2      from     3
+   FORWARD: TX finished #    28 out of    60
+   FORWARD  : Sent Per. #    11 : Pol #    1 to node #     3
+   FORWARD: Receive Per #     7 and Pol    1      from     7
+   FORWARD: TX finished #    29 out of    60
+   FORWARD  : Sent Per. #    15 : Pol #    1 to node #     7
+   FORWARD: Receive Per #     3 and Pol    1      from     4
+   FORWARD: TX finished #    30 out of    60
+   FORWARD  : Sent Per. #    19 : Pol #    1 to node #     4
+   FORWARD: Receive Per #    18 and Pol    2      from     6
+   FORWARD: TX finished #    31 out of    60
+   FORWARD  : Sent Per. #    23 : Pol #    1 to node #     6
+   FORWARD: Receive Per #    11 and Pol    1      from     3
+   FORWARD: TX finished #    32 out of    60
+   FORWARD  : Sent Per. #    27 : Pol #    1 to node #     3
+   FORWARD: Receive Per #    19 and Pol    1      from     4
+   FORWARD: TX finished #    33 out of    60
+   FORWARD  : Sent Per. #     3 : Pol #    2 to node #     4
+   FORWARD: Receive Per #    30 and Pol    2      from     2
+   FORWARD: TX finished #    34 out of    60
+   FORWARD  : Sent Per. #     7 : Pol #    2 to node #     2
+   FORWARD: Receive Per #    15 and Pol    1      from     7
+   FORWARD: TX finished #    35 out of    60
+   FORWARD  : Sent Per. #    11 : Pol #    2 to node #     7
+   FORWARD: Receive Per #    22 and Pol    2      from     1
+   FORWARD: TX finished #    36 out of    60
+   FORWARD  : Sent Per. #    15 : Pol #    2 to node #     1
+   FORWARD: Receive Per #    26 and Pol    2      from     5
+   FORWARD: TX finished #    37 out of    60
+   FORWARD  : Sent Per. #    19 : Pol #    2 to node #     5
+   FORWARD: Receive Per #     3 and Pol    2      from     4
+   FORWARD: TX finished #    38 out of    60
+   FORWARD  : Sent Per. #    23 : Pol #    2 to node #     4
+   FORWARD: Receive Per #     7 and Pol    2      from     2
+   FORWARD: TX finished #    39 out of    60
+   FORWARD  : Sent Per. #    27 : Pol #    2 to node #     2
+   FORWARD: Receive Per #    23 and Pol    1      from     6
+   FORWARD: TX finished #    40 out of    60
+   FORWARD  : Sent Per. #     4 : Pol #    1 to node #     6
+   FORWARD: Receive Per #    27 and Pol    1      from     3
+   FORWARD: TX finished #    41 out of    60
+   FORWARD  : Sent Per. #     8 : Pol #    1 to node #     3
+   FORWARD: Receive Per #    11 and Pol    2      from     7
+   FORWARD: TX finished #    42 out of    60
+   FORWARD  : Sent Per. #    12 : Pol #    1 to node #     7
+   FORWARD: Receive Per #     4 and Pol    1      from     6
+   FORWARD: TX finished #    43 out of    60
+   FORWARD  : Sent Per. #    16 : Pol #    1 to node #     6
+   FORWARD: Receive Per #     8 and Pol    1      from     3
+   FORWARD: TX finished #    44 out of    60
+   FORWARD  : Sent Per. #    20 : Pol #    1 to node #     3
+   FORWARD: Receive Per #    15 and Pol    2      from     1
+   FORWARD: TX finished #    45 out of    60
+   FORWARD  : Sent Per. #    24 : Pol #    1 to node #     1
+   FORWARD: Receive Per #    19 and Pol    2      from     5
+   FORWARD: TX finished #    46 out of    60
+   FORWARD  : Sent Per. #    28 : Pol #    1 to node #     5
+   FORWARD: Receive Per #    12 and Pol    1      from     7
+   FORWARD: TX finished #    47 out of    60
+   FORWARD  : Sent Per. #     4 : Pol #    2 to node #     7
+   FORWARD: Receive Per #    16 and Pol    1      from     6
+   FORWARD: TX finished #    48 out of    60
+   FORWARD  : Sent Per. #     8 : Pol #    2 to node #     6
+   FORWARD: Receive Per #     4 and Pol    2      from     7
+   FORWARD: TX finished #    49 out of    60
+   FORWARD  : Sent Per. #    12 : Pol #    2 to node #     7
+   FORWARD: Receive Per #    23 and Pol    2      from     4
+   FORWARD: TX finished #    50 out of    60
+   FORWARD  : Sent Per. #    16 : Pol #    2 to node #     4
+   FORWARD: Receive Per #    20 and Pol    1      from     3
+   FORWARD: TX finished #    51 out of    60
+   FORWARD  : Sent Per. #    20 : Pol #    2 to node #     3
+   FORWARD: Receive Per #    27 and Pol    2      from     2
+   FORWARD: TX finished #    52 out of    60
+   FORWARD  : Sent Per. #    24 : Pol #    2 to node #     2
+   FORWARD: Receive Per #    24 and Pol    1      from     1
+   FORWARD: TX finished #    53 out of    60
+   FORWARD  : Sent Per. #    28 : Pol #    2 to node #     1
+   FORWARD: Receive Per #     8 and Pol    2      from     6
+   FORWARD: TX finished #    54 out of    60
+   FORWARD: Receive Per #    28 and Pol    1      from     5
+   FORWARD: TX finished #    55 out of    60
+   FORWARD: Receive Per #    12 and Pol    2      from     7
+   FORWARD: TX finished #    56 out of    60
+   FORWARD: Receive Per #    16 and Pol    2      from     4
+   FORWARD: TX finished #    57 out of    60
+   FORWARD: Receive Per #    20 and Pol    2      from     3
+   FORWARD: TX finished #    58 out of    60
+   FORWARD: Receive Per #    24 and Pol    2      from     2
+   FORWARD: TX finished #    59 out of    60
+   FORWARD: Receive Per #    28 and Pol    2      from     1
+   FORWARD: TX finished #    60 out of    60
+ FWD: Finished calculating for (          30 ) Transmitters 
+ FWD: TIME REQUIERED:    221.72473900000011      s
+ FWD: Sending stop message to all nodes
+ Node/Group :           1  status=  Job Completed
+ Node/Group :           2  status=  Job Completed
+ Node/Group :           3  status=  Job Completed
+ Node/Group :           4  status=  Job Completed
+ Node/Group :           5  status=  Job Completed
+ Node/Group :           6  status=  Job Completed
+ Node/Group :           7  status=  Job Completed

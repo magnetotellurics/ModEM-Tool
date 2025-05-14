@@ -1,0 +1,30 @@
+#!/Users/mcurry/venv/modem/bin/python
+import sys
+import argparse
+
+from mtpy import MTData
+from mtpy.modeling import StructuredGrid3D
+
+description = '''Use MtPY's Plot_mesh to plot a modem mesh and stations upon that mesh'''
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('rho_file', help='Filepath to the rho model', type=str)
+parser.add_argument('data_file', help='Filepath to the data file', type=str)
+parser.add_argument('-s', '--save_fname', help='Name of the file to save the plot, if not present show the plot', type=str, default=None)
+
+args = parser.parse_args()
+
+mesh_file = args.rho_file
+data_file = args.data_file
+save_fname = args.save_fname
+
+mesh = StructuredGrid3D()
+mesh.from_modem(mesh_file)
+
+mtd = MTData()
+mtd.from_modem(data_file)
+
+mesh.station_locations = mtd.station_locations
+mesh.center_point = mtd.center_point
+
+mesh.plot_mesh(fname=save_fname)

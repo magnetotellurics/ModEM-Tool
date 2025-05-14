@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+import sys
+import argparse
+
+from PyModEM import ModEMData
+
+def list_periods(data):
+    for period in data.periods:
+        print(period)
+
+def remove_period(data, periods: [float]):
+    for period in periods:
+        try:
+            data.remove_period(period)
+        except ValueError as e:
+            print(e)
+            print("Please choose a valid period:")
+            list_periods(data)
+            sys.exit(1)
+
+def remove_all_periods_but(data, save_periods: [float]):
+    periods_to_delete = []
+    for period in data.periods:
+        if period in save_periods:
+            continue
+
+        periods_to_delete.append(period)
+
+    for delete_periods in periods_to_delete:
+        data.remove_period(delete_periods)
+
+def save_data(data, comment):
+    data.write_data(ModEMData.ModEMData.construct_data_filename(data, comment))
+   
+def check_if_periods_are_present(periods):
+    if periods is None:
+        raise ValueError("No periods passed, specify periods by '-p p1, p2, .. pn'")
+
+
+description = '''A few tools to manipulate a ModEM Data file (just list or remove periods)'''
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('data_file', help='Filepath to the data file', type=str)
+parser.add_argument('task', help="list, remove, remove_all_but", type=str)
+parser.add_argument('-p', '--periods', help='List of periods to remove, seperated by common', type=float, nargs='+')
+args = parser.parse_args()
+
+data_filename = args.data_file
+data = ModEMData.ModEMData(data_filename)
+periods = args.periods
+
+if args.task == 'list':
+    list_periods(data)
+
+elif args.task == 'remove':
+    check_if_periods_are_present(periods)
+    remove_period(data, periods)
+    save_data(data, 'save')
+elif args.task == 'remove_all_but':
+    check_if_periods_are_present(periods)
+    remove_all_periods_but(data, periods)
+    save_data(data, 'save')

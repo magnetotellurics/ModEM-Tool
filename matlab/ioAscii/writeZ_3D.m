@@ -99,7 +99,7 @@ if nargin < 4
     if isfield(allData{1},'units') || isprop(allData{1},'units')
         units = allData{1}.units;
     else
-        units = '[V/m]/[T]'
+        units = '[V/m]/[T]';
     end
 end
 

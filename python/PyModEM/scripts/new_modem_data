@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+
+import argparse
+
+from PyModEM import ModEMData
+
+
+print(ModEMData.make_period_data_for_datatype(1.0, "Full_Impedance"))

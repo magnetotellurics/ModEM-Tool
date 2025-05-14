@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+import sys
+
+import argparse
+
+from PyModEM import ModEMData
+
+description = "Change the error of a given ModEM data file (.dat)"
+parser = argparse.ArgumentParser(prog="Change .dat error", description=description)
+parser.add_argument('data_fname', help='Filename to store the data', type=str)
+parser.add_argument('error', help='Default error for the data', type=float, default=1.0e-1)
+
+args = parser.parse_args()
+
+data_fname = args.data_fname
+error = args.error
+
+ERROR_IDX = 10
+
+def skip_header(file):
+    for _ in range(0, 8):
+        file.readline()
+
+
+def write_line(file, spline):
+    file.write(ModEMData.DAT_DATA_FORMAT.format(float(spline[0]), # Period
+                                                str(spline[1]),   # Station id
+                                                float(spline[2]), # lat
+                                                float(spline[3]), # lon
+                                                float(spline[4]), # x
+                                                float(spline[5]), # y
+                                                float(spline[6]), # z
+                                                str(spline[7]),   # component
+                                                float(spline[8]), # real
+                                                float(spline[9]), # imag
+                                                float(spline[10]) # error
+                                                ) + '\n')
+
+lines = []
+header = []
+
+with open(data_fname, 'r') as datafile:
+    for _ in range(0, 8):
+        header.append(datafile.readline())
+
+    for line in datafile:
+        spline = line.strip().split()
+        spline[ERROR_IDX] = error
+
+        lines.append(spline)
+
+with open(data_fname, 'w') as datafile:
+    datafile.writelines(header)
+
+    for line in lines:
+        write_line(datafile, line)

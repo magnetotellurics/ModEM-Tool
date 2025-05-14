@@ -1,0 +1,1612 @@
+classdef mtdata < latlontools
+    %   read, write and redefine errors on MT data for multiple periods
+    %   (I think that this currently assumes a single data type
+    %    - for inversion, this could be changed; or an array of these 
+    %   variables could be used, like in ModEM... except in ModEM it's
+    %   first sorted by frequencies, then by type - but things like
+    %   file storage and plotting really demand type separation!
+    %    - this also means that reading should pick out a specific type.)
+    %   (c) Anna Kelbert, March 2014
+    %
+    %   ModEM currently supports the following types:
+    %
+    %   Full_Impedance
+    %   Off_Diagonal_Impedance
+    %   Full_Vertical_Components
+    %   Full_Interstation_TF
+    %   Off_Diagonal_Rho_Phase
+    %   Phase_Tensor
+    %
+    %   ideally, we would want to match ModEM types to those allowed
+    %   by the XML definition (and never mix units together into one)...
+    %   but that's something to be discussed.    
+    
+    properties
+        filename    % file name
+        header      % file header
+        d           % arrays of mtperiod cells
+        nPeriods    % number of periods in d
+        nSites      % total number of sites in all periods (for efficiency)
+        nComp       % number of *real* transfer function components
+        Cmplx = 1   % real or complex
+        units = '[mV/km]/[nT]'  % use ImpUnits to convert
+        signConvention = 1  % 1 or -1
+        orient = 0  % orientation relative to the geographic North
+        compChar    % [nComp/2 x 3] TF component names
+        primaryCoords = 'latlon' % latlon or xy
+        txType = 'MT' % defines the transmitter type for writing to file
+        type        % determines which transfer function this is!!!
+        predicted = 0  % true or false
+        metadata    % a structure as read from a file
+        copyright   % a structure as read from file or created in Matlab
+    end
+
+    properties (Constant)
+        nanvalue = 999999;
+    end
+
+    properties %(SetAccess = protected)
+        % x=0,y=0,z=0 in lat/lon coordinates
+        % when updated, automatically recompute siteLoc
+        % (or lat/lon, depending on which are primary)
+        origin
+        % mstruct is as used in Matlab Mapping Toolbox; defines projection
+        mstruct
+        % simple structure of all data regrouped into observatory bins;
+        % most useful for plotting or fetching a specific TF
+        v
+        % for impedances, sometimes it is convenient to also compute 
+        % and store the apparent resistivities and phases
+        apres
+        phase
+    end
+    
+    methods
+        function [obj] = mtdata(varargin)
+            %   class constructor
+            %   [obj] =
+            %   mtdata(type,Periods,primaryCoords,signConvention)
+            obj.origin = zeros(1,3);
+            
+            if nargin == 0
+                return
+            end
+            
+            if nargin>0
+                obj.type = varargin{1};
+                if strcmp(obj.type,'Full_Impedance')
+                    obj.nComp = 8;
+                    obj.Cmplx = 1;
+                    obj.units = '[mV/km]/[nT]';
+                    obj.compChar = ['ZXX';'ZXY';'ZYX';'ZYY'];
+                elseif strcmp(obj.type,'Off_Diagonal_Impedance')
+                    obj.nComp = 4;
+                    obj.Cmplx = 1;
+                    obj.units = '[mV/km]/[nT]';
+                    obj.compChar = ['ZXY';'ZYX'];
+                elseif strcmp(obj.type,'Full_Vertical_Components')
+                    obj.nComp = 4;
+                    obj.Cmplx = 1;
+                    obj.units = '[]';
+                    obj.compChar = ['TX ';'TY '];
+                elseif strcmp(obj.type,'Full_Interstation_TF')
+                    disp("Full_Interstation_TF")
+                    obj.nComp = 8;
+                    obj.Cmplx = 1;
+                    obj.units = '[]';
+                    obj.compChar = ['MXX';'MXY';'MYX';'MYY'];
+                elseif strcmp(obj.type,'Off_Diagonal_Rho_Phase')
+                    obj.nComp = 4;
+                    obj.Cmplx = 0;
+                    obj.units = '[]';
+                    obj.compChar = ['RHOXY';'PHSXY';'RHOYX';'PHSYX'];
+                elseif strcmp(obj.type,'Phase_Tensor')
+                    obj.nComp = 4;
+                    obj.Cmplx = 0;
+                    obj.units = '[]';
+                    obj.compChar = ['PTXX';'PTXY';'PTYX';'PTYY'];
+                else
+                    error('Unable to initialize MT data: unknown data type');
+                end
+            end
+            
+            
+            if nargin > 1            
+                Periods = varargin{2};
+                obj.nPeriods = length(Periods);
+            else
+                obj.nPeriods = 0;
+            end
+            
+            for i=1:obj.nPeriods
+                obj.d{i} = mtperiod(obj.type);
+                obj.d{i}.T = Periods(i);
+            end
+            
+            obj.nSites = 0;
+            
+            if nargin > 2
+                obj.primaryCoords = varargin{3};
+                for i=1:obj.nPeriods
+                    obj.d{i}.primaryCoords = obj.primaryCoords;
+                end
+            end
+
+            if nargin > 3
+                obj.signConvention = varargin{3};
+                for i=1:obj.nPeriods
+                    obj.d{i}.signConvention = obj.signConvention;
+                end
+            end
+            
+            % initialize "summary" structures
+            obj.v = struct('code',[],'loc',[],'lon',[],'lat',[],...
+                    'data',[],'err',[],'per',[],'comp',[]);
+            obj.apres = struct('xy',[],'xy_se',[],'yx',[],'yx_se',[]);
+            obj.phase = struct('xy',[],'xy_se',[],'yx',[],'yx_se',[]);
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = zero(obj)
+            % by default, data are initialized to NaN; however, when we
+            % want to make a data file Template, we wish to set all values
+            % to zero, instead - this lets us do it
+            
+            for k=1:obj.nPeriods
+                if obj.Cmplx
+                    obj.d{k}.TF = zeros(size(obj.d{k}.TF)) + 1i*zeros(size(obj.d{k}.TF));
+                else
+                    obj.d{k}.TF = zeros(size(obj.d{k}.TF));
+                end
+                obj.d{k}.TFerr = obj.nanvalue * ones(size(obj.d{k}.TF));
+            end
+            
+        end
+            
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = initSites(obj,lat,lon,sitename,mstruct)
+            % initialize the data with the site locations and site names
+            %
+            % (re)define the geographic origin and correspondingly
+            % (re)compute either lat/lon or x/y site coordinates
+            % depending on which is primary
+            
+            % rotate row vectors to get the dimensions right
+            if size(lat,1) == 1
+                lat = lat';
+            end
+            
+            if size(lon,1) == 1
+                lon = lon';
+            end
+            
+            obj.nSites = length(lat);
+            
+            for i=1:obj.nPeriods
+                obj.d{i}.lat = lat;
+                obj.d{i}.lon = lon;
+                obj.d{i}.siteChar = char(sitename);
+                obj.d{i}.siteLoc = zeros(obj.nSites,3);
+                obj.d{i}.nSite = obj.nSites;
+                if isempty(obj.d{i}.TF)
+                    obj.d{i} = obj.d{i}.initData;
+                end
+            end 
+            
+            if nargin>4            
+                obj.origin = mstruct.origin;
+            end
+            
+            % recompute x/y or lat/lon depending on which is primary
+            for i=1:obj.nPeriods
+                obj.d{i} = setOrigin(obj.d{i},mstruct);
+            end
+            
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = insertSites(obj,lat,lon,sitename)
+            % initialize space for new data with the site locations 
+            % and site names to add to existing data points
+            %
+            % (re)define the geographic origin and correspondingly
+            % (re)compute either lat/lon or x/y site coordinates
+            % depending on which is primary
+            
+            % rotate row vectors to get the dimensions right
+            if size(lat,1) == 1
+                lat = lat';
+            end
+            
+            if size(lon,1) == 1
+                lon = lon';
+            end
+            
+            if length(obj.origin) < 3
+                obj.origin(3) = 0;
+            end
+            
+            periods = zeros(1,obj.nPeriods);
+            for j = 1:obj.nPeriods
+                periods(j) = obj.d{j}.T;
+            end
+
+            newdat = mtdata(obj.type,periods,obj.primaryCoords);
+            newdat = newdat.initSites(lat,lon,sitename,obj.origin(1),obj.origin(2),obj.origin(3));
+            
+            for i=1:obj.nPeriods
+                obj.d{i} = merge(obj.d{i},newdat.d{i});
+%                 oldnames = obj.d{i}.siteChar;
+%                 nchar = max(length(oldnames(1,:)),length(sitename(1,:)));
+%                 ncharold = length(oldnames(1,:));
+%                 ncharnew = length(sitename(1,:));
+%                 nsites = length(oldnames) + length(sitename);
+%                 nsitesold = length(oldnames);
+%                 nsitesnew = length(sitename);
+%                 obj.d{i}.siteChar = char(zeros(nsites,nchar));
+%                 obj.d{i}.lat = [obj.d{i}.lat; lat];
+%                 obj.d{i}.lon = [obj.d{i}.lon; lon];
+%                 obj.d{i}.siteChar(1:nsitesold,1:ncharold) = char(oldnames);
+%                 obj.d{i}.siteChar(nsitesold+1:nsites,1:ncharnew) = char(sitename);
+%                 obj.d{i}.siteLoc = [obj.d{i}.siteLoc; zeros(nsitesnew,3)];
+%                 obj.d{i}.nSite = obj.d{i}.nSite + nsitesnew;
+%                 if isempty(obj.d{i}.TF)
+%                     obj.d{i} = obj.d{i}.initData;
+%                 end
+            end 
+            
+%             if nargin>4            
+%                 obj.origin(1) = lat0;
+%             end
+%             if nargin>5
+%                 obj.origin(2) = lon0;
+%             end
+%             if nargin>6
+%                 obj.origin(3) = z0;
+%             elseif length(obj.origin) < 3
+%                 obj.origin(3) = 0;
+%             end
+%             
+%             % recompute x/y or lat/lon depending on which is primary
+%             for i=1:obj.nPeriods
+%                 obj.d{i} = setOrigin(obj.d{i},mstruct);
+%             end
+            
+            % crude approximation that doesn't take into account duplicate
+            % sites... but we're really after an upper limit
+            obj.nSites = obj.nSites + newdat.nSites;
+
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [obj] = prefixSites(obj,prefix)
+            %  [obj] = prefixSites(obj,prefix)
+            %
+            %  prefix all site names with the string prefix - convenient
+            %  for merging different data sets
+            
+            for j = 1:obj.nPeriods
+                sitenames = obj.d{j}.siteChar;
+                nchar = length(prefix) + length(sitenames(1,:));
+                nsites = length(sitenames);
+                obj.d{j}.siteChar = char(zeros(nsites,nchar));
+                for i = 1:length(obj.d{j}.siteChar)
+                    obj.d{j}.siteChar(i,:) = [prefix char(sitenames(i,:))];
+                end
+            end
+            
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [allsites,allsitesloc,lat,lon] = getSites(obj,isRegular)
+            %  [allsites,allsitesloc,lat,lon] = getSites(obj,isRegular)
+            %
+            %  create the list of all sites in data array while dealing 
+            %  intelligently with missing data
+            % 
+            %  if the data array is regular (same sites for all frequencies)
+            %  and the complex logic is not needed, set isRegular = 1
+            
+            if nargin < 2
+                isRegular = 0;
+            end
+            
+            allsites = obj.d{1}.siteChar;
+            if isempty(allsites)
+                allsitesloc = [];
+                lat = [];
+                lon = [];
+                return;
+            end
+            allsitesloc = obj.d{1}.siteLoc;
+            lat = obj.d{1}.lat;
+            lon = obj.d{1}.lon;
+            if ~isRegular
+                for j = 2:obj.nPeriods
+                    for i = 1:length(obj.d{j}.lat)
+                        if ~contains(allsites,obj.d{j}.siteChar{i})
+                            allsites = [allsites; obj.d{j}.siteChar{i}];
+                            allsitesloc = [allsitesloc; obj.d{j}.siteLoc(i,:)];
+                            lat = [lat; obj.d{j}.lat(i)];
+                            lon = [lon; obj.d{j}.lon(i)];
+                        end
+                    end
+                end
+            end
+            
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [info,apres,phase] = summary(obj,isRegular)
+            %  [info,apres,phase] = summary(obj,isRegular)
+            %
+            %  compute the total number of frequencies and sites            
+            %  regroup into observatory bins dealing intelligently
+            %  with missing data
+            %  
+            %  Default: assume that all sites are present at all periods
+            %  and that no missing data needs to be accounted for;
+            %  this is much faster. If for some reason we need the more
+            %  complicated logic, set isRegular = 0.
+            
+            if nargin < 2
+                isRegular = 1;
+            end
+            
+            %  compute the total number of frequencies and sites
+            [allsites,allsitesloc,lat,lon] = obj.getSites(isRegular);
+            nsite = length(lat);
+            if nsite == 0
+                info = struct('code',[],'loc',[],'lon',[],'lat',[],...
+                    'data',[],'err',[],'per',[],'comp',[]);
+                apres = struct('xy',[],'xy_se',[],'yx',[],'yx_se',[]);
+                phase = struct('xy',[],'xy_se',[],'yx',[],'yx_se',[]);
+                return;
+            end
+            
+            %  regroup into observatory bins; used in obj.regroup
+            if obj.Cmplx
+                ncomp = obj.nComp/2;
+            else
+                ncomp = obj.nComp;
+            end
+            info.code = allsites;
+            info.loc = allsitesloc;
+            info.lon = lon;
+            info.lat = lat;
+            info.comp = obj.compChar;
+            info.data = nan(nsite,obj.nPeriods,ncomp);
+            info.err = nan(nsite,obj.nPeriods,ncomp);
+            for j = 1:obj.nPeriods
+                info.per(j) = obj.d{j}.T;
+                for i = 1:nsite
+                    if isRegular
+                        info.data(i,j,:) = obj.d{j}.TF(i,:);
+                        info.err(i,j,:) = obj.d{j}.TFerr(i,:);
+                    else
+                        k = find(contains(obj.d{j}.siteChar,allsites{i}));
+                        if ~isempty(k)
+                            info.data(i,j,:) = obj.d{j}.TF(k,:);
+                            info.err(i,j,:) = obj.d{j}.TFerr(k,:);
+                        end
+                    end
+                end
+            end
+            
+            % also compute apparent resistivities and phases if reasonable
+            rad_deg = 57.2958;
+            if strcmp(obj.type,'Off_Diagonal_Rho_Phase')
+                apres.xy = squeeze(info.data(:,:,1));
+                apres.xy_se = squeeze(info.err(:,:,1));
+                phase.xy = squeeze(info.data(:,:,2));
+                phase.xy_se = squeeze(info.err(:,:,2));
+                apres.yx = squeeze(info.data(:,:,3));
+                apres.yx_se = squeeze(info.err(:,:,3));
+                phase.yx = squeeze(info.data(:,:,4));
+                phase.yx_se = squeeze(info.err(:,:,4));
+                return
+            elseif strcmp(obj.type,'Full_Impedance')
+                ixy = 2;
+                iyx = 3;
+            elseif strcmp(obj.type,'Off_Diagonal_Impedance')
+                ixy = 1;
+                iyx = 2;
+            else
+                %warning('Unable to compute apparent resistivities and phases for this data type');
+                apres = struct('xy',[],'xy_se',[],'yx',[],'yx_se',[]);
+                phase = struct('xy',[],'xy_se',[],'yx',[],'yx_se',[]);
+                return
+            end
+            apres.xy = abs(info.data(:,:,ixy)).^2;
+            apres.xy_se = info.err(:,:,ixy).^2; % variance of Z as in EDI file
+            apres.yx = abs(info.data(:,:,iyx)).^2;
+            apres.yx_se = info.err(:,:,iyx).^2; % variance of Z as in EDI file
+            % for now, using atan2 which takes values (-pi,pi] as in ModEM
+            phase.xy = rad_deg*atan2(imag(info.data(:,:,ixy)),real(info.data(:,:,ixy)));
+            phase.xy_se = rad_deg*sqrt(apres.xy_se./apres.xy);
+            % for now, using atan2 which takes values (-pi,pi] as in ModEM
+            phase.yx = rad_deg*atan2(imag(info.data(:,:,iyx)),real(info.data(:,:,iyx))) + 180.;
+            phase.yx_se = rad_deg*sqrt(apres.yx_se./apres.yx);
+            % rescale apparent resistivity by period
+            for l = 1:length(info.per)
+                apres.yx(:,l) = apres.yx(:,l)*info.per(l)/5. ;
+                apres.xy(:,l) = apres.xy(:,l)*info.per(l)/5. ;
+                apres.yx_se(:,l) = sqrt(apres.yx_se(:,l).*apres.yx(:,l)*info.per(l)*4/5.);
+                apres.xy_se(:,l) = sqrt(apres.xy_se(:,l).*apres.xy(:,l)*info.per(l)*4/5.);
+            end
+            
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [obj,info,apres,phase] = regroup(obj,isRegular)
+            %  [obj,info,apres,phase] = regroup(obj,isRegular)
+            %
+            %  compute the total number of frequencies and sites            
+            %  regroup into observatory bins dealing intelligently
+            %  with missing data
+            %  store the result in obj
+            %
+            %  Default: assume that all sites are present at all periods
+            %  and that no missing data needs to be accounted for;
+            %  this is much faster. If for some reason we need the more
+            %  complicated logic, set isRegular = 0.
+            
+            if nargin < 2
+                isRegular = 1;
+            end
+            
+            [info,apres,phase] = obj.summary(isRegular);
+            obj.nSites = length(info.lat);
+            obj.v = info;
+            obj.apres = apres;
+            obj.phase = phase;
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function per = periods(obj,ind)
+            % per = periods(obj)
+            % 
+            % gets just the list of periods for external use (without the
+            % regrouping - quick and easy)
+            
+            if nargin < 2
+                per = zeros(1,obj.nPeriods);
+                for i = 1:obj.nPeriods
+                    per(i) = obj.d{i}.T;
+                end
+            else
+                per = obj.d{ind}.T;
+            end
+                        
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function ind = findPeriod(obj,T)
+            % ind = findPeriod(obj,T)
+            % 
+            % locates the index of the period that we need, if present
+            % (otherwise zero)
+            
+            ind = 0;
+            tmp = abs(obj.periods - T);
+            [value,i] = min(tmp);
+            if value < T*1e-6
+                ind = i;
+            end
+            
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [newobj] = interp(obj,periods,method,extrap)
+            % interpolates all values, including errors, to the new
+            % periods; set periods outside of the domain to NaNs unless
+            % required otherwise by using extrap = 1
+            
+            if nargin < 2
+                error('Please specify periods in seconds');
+            end
+            
+            if nargin < 3
+                method = 'linear';
+            end
+            
+            if nargin < 4
+                extrap = 0;
+            end
+             
+            oldobj = obj.regroup;
+            newobj = oldobj;
+            
+            oldinfo = oldobj.v;
+            oldperiods = oldinfo.per;
+            
+            newinfo = newobj.v;
+            newinfo.per = periods;
+            
+            
+            nsites = size(newinfo.loc,1);
+            ncomp = size(newinfo.comp,1);
+            
+            newinfo.data = zeros(nsites,length(periods),ncomp) + 1i*zeros(nsites,length(periods),ncomp);
+            
+            for j = 1:nsites
+                for k = 1:ncomp
+                    ind = ~isnan(squeeze(oldinfo.data(j,:,k)));
+                    newinfo.data(j,:,k) = interp1((log10(oldperiods(ind))),squeeze(oldinfo.data(j,ind,k)).*sqrt(oldperiods(ind)),log10(periods),method,'extrap');
+                    newinfo.data(j,:,k) = squeeze(newinfo.data(j,:,k))./sqrt(periods);
+                end
+            end
+            
+            if ~obj.predicted            
+                newinfo.err = zeros(nsites,length(periods),ncomp);
+                for j = 1:nsites
+                    for k = 1:ncomp
+                        ind = ~isnan(squeeze(oldinfo.err(j,:,k)));
+                        newinfo.err(j,:,k) = interp1((log10(oldperiods(ind))),squeeze(oldinfo.err(j,ind,k)).*sqrt(oldperiods(ind)),log10(periods),method,'extrap');
+                        newinfo.err(j,:,k) = squeeze(newinfo.err(j,:,k))./sqrt(periods);
+                    end
+                end
+            end
+            
+            newobj.v = newinfo;
+            newobj.nPeriods = length(periods);
+            
+            % now go against the logic and remake newobj.d - have to assume same
+            % site layout at all periods
+            newobj.d = {};
+            for i=1:newobj.nPeriods
+                newobj.d{i} = mtperiod(newobj.type,nsites);
+                newobj.d{i}.siteLoc = oldobj.d{1}.siteLoc;
+                newobj.d{i}.siteChar = oldobj.d{1}.siteChar;
+                newobj.d{i}.lat = oldobj.d{1}.lat;
+                newobj.d{i}.lon = oldobj.d{1}.lon;
+                newobj.d{i}.T = periods(i);
+                newobj.d{i}.TF = [];
+                newobj.d{i}.TFerr = [];
+                newobj.d{i} = newobj.d{i}.initData(nsites,squeeze(newinfo.data(:,i,:)),squeeze(newinfo.err(:,i,:)));
+            end
+            newobj.nSites = nsites;
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function newobj = subset(obj,condition)
+            % newobj = subset(obj,condition)
+            % 
+            % extracts an mtdata object of sites that satisfy the
+            % conditions. Possible usage:
+            % newobj = obj.subset(lims) gets all sites that are within the
+            %           bounds of the limits specified by the lims structure
+            % newobj = obj.subset(str) gets all sites whose ids contain the
+            %           string str or all sites that match a cell str array
+            % newobj = obj.subset(per) extracts the periods with specified 
+            %           indices into the new structure
+            
+            newobj = obj;
+            
+            %nSiteMax = 0;
+            %for k = 1:obj.nPeriods
+            %    if obj.d{k}.nSite > nSiteMax
+            %        nSiteMax = obj.d{k}.nSite;
+            %    end
+            %end
+            
+            ii = zeros(obj.nPeriods,obj.nSites);
+            
+            if ischar(condition)
+                str = condition;
+                nSelect = size(str,1);
+                for k = 1:obj.nPeriods
+                    for i = 1:obj.d{k}.nSite
+                        for j = 1:nSelect
+                            if contains(obj.d{k}.siteChar{i},str(j,:))
+                                ii(k,i) = i; break;
+                            end
+                        end
+                    end
+                end
+            elseif iscell(condition)
+                str = condition;
+                nSelect = size(str,1);
+                for k = 1:obj.nPeriods
+                    for i = 1:obj.d{k}.nSite
+                        for j = 1:nSelect                     
+                            if ~isempty(find(contains(str,strtrim(obj.d{k}.siteChar{i})),1))
+                                ii(k,i) = i;
+                            end
+                        end
+                    end
+                end                
+            elseif isstruct(condition)
+                lims = condition;
+                if lims.lonmin>=180 && lims.lonmax>=180
+                    lims.lonmin = lims.lonmin - 360;
+                    lims.lonmax = lims.lonmax - 360;
+                end
+                if lims.lonmax <= lims.lonmin || lims.latmax <= lims.latmin
+                    error('Your area limits are not set up properly. Please review these.')               
+                end
+                for k = 1:obj.nPeriods
+                    for i = 1:obj.d{k}.nSite
+                        latitude = obj.d{k}.lat(i);
+                        longitude = obj.d{k}.lon(i);
+                        if latitude > lims.latmin && latitude < lims.latmax ...
+                                && longitude > lims.lonmin && longitude < lims.lonmax
+                            ii(k,i) = i;
+                        end
+                    end
+                end
+            elseif isnumeric(condition)
+                iPer = condition;
+                newobj.d = {};
+                for k = 1:length(iPer)
+                    newobj.d{k} = obj.d{iPer(k)};
+                end
+                newobj.nPeriods = length(iPer);
+                return % nothing else to be done here
+            end
+                        
+            for k = 1:obj.nPeriods
+                isites = ii(k,:)>0;
+                names = cell(sum(isites),1); j = 1;
+                for i = 1:length(isites)
+                    if isites(i)
+                        names{j} = obj.d{k}.siteChar{i}; j = j+1;
+                    end
+                end
+                newobj.d{k}.siteLoc = obj.d{k}.siteLoc(isites,:);
+                newobj.d{k}.siteChar = names; %obj.d{k}.siteChar{isites};
+                newobj.d{k}.TF = obj.d{k}.TF(isites,:);
+                newobj.d{k}.TFerr = obj.d{k}.TFerr(isites,:);
+                newobj.d{k}.lat = obj.d{k}.lat(isites);
+                newobj.d{k}.lon = obj.d{k}.lon(isites);
+                newobj.d{k}.nSite = sum(isites);
+                newobj.nSites = max(newobj.nSites,sum(isites));
+            end
+
+            %Unfortunately, this is prohibitively inefficient for large
+            %data sets...
+            %if ~isempty(newobj.v)
+            %    newobj = newobj.regroup;
+            %end
+            
+        end 
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [tfobj,jj] = get(obj,mysite,km)
+            % tfpbj = get(obj,siteName)
+            % OR
+            % tfobj = get(obj,sitelatlon,km)
+            %
+            % extracts an mttf for a single site based on site name, or
+            % (optionally) gets all sites that are within a given number of
+            % km from a latitude and longitude
+            %
+            % much more efficient if we store "v" because the regroup only
+            % needs to be done once and this can be run many times over
+            
+            if isempty(obj.v.code)
+                obj = obj.regroup;
+            end
+                        
+            if ischar(mysite)
+                siteName = mysite;
+                i = strmatch(strtrim(siteName),strtrim(strjust(obj.v.code,'left')));
+                if isempty(i)
+                    error(['No site in MT data object matching ' siteName]);
+                elseif isempty(deblank(siteName))
+                    error('Site name is an empty string. Run ''obj.clean'' first.');
+                else
+                    disp(['Found site ' siteName ' in mtdata. Fetching...']);
+                end            
+                sitelat = obj.v.lat(i);
+                sitelon = obj.v.lon(i);
+            elseif isnumeric(mysite)
+                sitelat = mysite(1);
+                sitelon = mysite(2);
+            end
+            
+            if nargin <= 2
+                % find and "get" a single site
+                dist = sqrt((obj.v.lat-sitelat).^2 + (obj.v.lon-sitelon).^2);
+                [~,i] = min(dist);
+                
+                T = obj.v.per;
+                
+                Z = zeros(2,2,obj.nPeriods);
+                Z(1,1,:) = obj.v.data(i,:,1);
+                Z(1,2,:) = obj.v.data(i,:,2);
+                Z(2,1,:) = obj.v.data(i,:,3);
+                Z(2,2,:) = obj.v.data(i,:,4);
+                
+                Zstd = zeros(2,2,obj.nPeriods);
+                Zstd(1,1,:) = obj.v.err(i,:,1);
+                Zstd(1,2,:) = obj.v.err(i,:,2);
+                Zstd(2,1,:) = obj.v.err(i,:,3);
+                Zstd(2,2,:) = obj.v.err(i,:,4);
+                
+                latlon = [sitelat sitelon];
+                
+                [tfobj] = mttf('Full_Impedance');
+                [tfobj] = tfobj.set(T,Z,Zstd,latlon);
+                tfobj.orient = obj.orient;
+                tfobj.units = obj.units;
+                tfobj.predicted = obj.predicted;
+                tfobj.copyright = obj.copyright;
+                tfobj.metadata = obj.metadata;
+                tfobj.siteChar = strtrim(strjust(obj.v.code{i},'left'));
+                tfobj.siteLoc = obj.v.loc(i,:);
+                tfobj.tfname = tfobj.siteChar;
+                jj = i;
+                
+            elseif km > 0
+                % find and get all sites within km from point
+                % make array of distances using haversine formula for
+                % great-circle distance delta(j) = 2*R_earth*arcsin(sqrt(dist(j))
+                phi1=sitelon*pi/180; theta1=sitelat*pi/180;
+                R_earth=6372.795;
+                h=(sin(km/(2*R_earth)))^2;
+                dist = zeros(1,length(obj.v.lat));
+                for j=1:length(obj.v.lat)
+                    phi2=obj.v.lon(j)*pi/180; theta2=obj.v.lat(j)*pi/180;
+                    dphi=phi1-phi2; dtheta=theta1-theta2;
+                    dist(j) = (sin(dtheta/2))^2+cos(theta1)*cos(theta2)*(sin(dphi/2))^2;
+                end
+                jj = find(dist<h);
+                N = length(jj);
+                disp(['Found ' num2str(N) ' sites within ' num2str(km)...
+                     ' km from [' num2str(sitelat) ' ' num2str(sitelon) ']:']);
+                
+                for i = 1:N
+                    T = obj.v.per;
+                    
+                    Z = zeros(2,2,obj.nPeriods);
+                    Z(1,1,:) = obj.v.data(jj(i),:,1);
+                    Z(1,2,:) = obj.v.data(jj(i),:,2);
+                    Z(2,1,:) = obj.v.data(jj(i),:,3);
+                    Z(2,2,:) = obj.v.data(jj(i),:,4);
+                    
+                    Zstd = zeros(2,2,obj.nPeriods);
+                    Zstd(1,1,:) = obj.v.err(jj(i),:,1);
+                    Zstd(1,2,:) = obj.v.err(jj(i),:,2);
+                    Zstd(2,1,:) = obj.v.err(jj(i),:,3);
+                    Zstd(2,2,:) = obj.v.err(jj(i),:,4);
+                    
+                    latlon = [obj.v.lat(jj(i)) obj.v.lon(jj(i))];
+                    
+                    [tfobj{i}] = mttf('Full_Impedance');
+                    [tfobj{i}] = tfobj{i}.set(T,Z,Zstd,latlon);
+                    tfobj{i}.orient = obj.orient;
+                    tfobj{i}.units = obj.units;
+                    tfobj{i}.predicted = obj.predicted;
+                    tfobj{i}.copyright = obj.copyright;
+                    tfobj{i}.metadata = obj.metadata;
+                    tfobj{i}.siteChar = obj.v.code{jj(i)};
+                    tfobj{i}.siteLoc = obj.v.loc(jj(i),:);
+                    tfobj{i}.tfname = tfobj{i}.siteChar;
+                    disp([tfobj{i}.tfname ': [' num2str(latlon) ']']);
+                end
+                
+            else
+                error('Unable to get the requested impedances');
+            end
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = set(obj,tfobj)
+            % obj = set(obj,tfobj)
+            %
+            % interpolates a new mttf object to the mtdata set of periods
+            % and adds the new site and data to mtdata object
+            %
+            % only grabs the impedances because this is what mtdata is set
+            % to handle; need a different class for other TF types
+            %
+            % Do not forget to run obj = obj.regroup when done adding sites!
+
+            if isempty(obj.d) % initialize periods with zero sites
+                obj.nPeriods = length(tfobj.T);
+                for k=1:obj.nPeriods
+                    obj.d{k} = mtperiod(obj.type,0,obj.primaryCoords,obj.signConvention);
+                    obj.d{k}.T = tfobj.T(k);
+                    obj.d{k}.siteChar = '';
+                end
+            else
+                % convert to mtdata periods
+                tfobj = tfobj.interp(obj.periods);
+            end
+
+            Z = (NaN+1i*NaN)*zeros(2,2,obj.nPeriods);
+            Ti = (NaN+1i*NaN)*zeros(2,obj.nPeriods);
+            switch obj.type
+                case {'Full_Impedance','Off_Diagonal_Impedance','Off_Diagonal_Rho_Phase'}
+                    [Z,Zstd] = tfobj.impedance;
+                    if ~strcmp(obj.units,tfobj.units)
+                        SI_factor = ImpUnits(tfobj.units,obj.units);
+                        Z = Z * SI_factor;
+                        Zstd = Zstd * SI_factor;
+                    end
+                case 'Full_Vertical_Components'
+                    [Ti,Tstd] = tfobj.verticalFieldTFs;
+                otherwise
+                    error('Unknown data type');
+            end
+            
+            allsites = getSites(obj);
+            if isempty(allsites)
+                disp(['Initializing mtdata with site ' char(tfobj.siteChar)]);
+            else
+                i = find(contains(allsites,tfobj.siteChar), 1);
+                if ~isempty(i)
+                    disp(['Replacing site ' char(tfobj.siteChar) ' in mtdata with new impedances']);
+                else
+                    disp(['Appending site ' char(tfobj.siteChar) ' to mtdata']);
+                end
+            end
+            
+            for k=1:obj.nPeriods
+                if ~isempty(obj.d{k}.siteChar)
+                    i = find(contains(obj.d{k}.siteChar,tfobj.siteChar));
+                else
+                    i = [];
+                end
+                if isempty(i)
+                    i = obj.d{k}.nSite+1;
+                end
+                %sitenamelen = max(size(strtrim(obj.d{k}.siteChar),2),size(strtrim(tfobj.siteChar)));
+                %for i = 1:size(obj.d{k}.siteChar,1); tmp(i,:) = sprintf('%20s',obj.d{k}.siteChar(i,:)); end
+%                 if ~isempty(obj.d{k}.siteChar) && size(obj.d{k}.siteChar,2) < 20 % fix the site name length
+%                     for i = 1:size(obj.d{k}.siteChar,1)
+%                         tmp(i,:) = sprintf('%20s',obj.d{k}.siteChar(i,:)); 
+%                     end
+%                     obj.d{k}.siteChar = tmp;
+%                 end
+                % For large data sets, separate bookkeeping for separate
+                % periods is no longer practical, or useful. If a period is
+                % NaN for a site, we still record it as such. Deal with
+                % that on output to file.
+                switch obj.type
+                    case {'Full_Impedance','Off_Diagonal_Impedance','Off_Diagonal_Rho_Phase'}
+                        %if sum(sum(isnan(Z(:,:,k))))<4 % not all impedances are NaN
+                        obj.d{k}.TF(i,1) = Z(1,1,k);
+                        obj.d{k}.TF(i,2) = Z(1,2,k);
+                        obj.d{k}.TF(i,3) = Z(2,1,k);
+                        obj.d{k}.TF(i,4) = Z(2,2,k);
+                        obj.d{k}.TFerr(i,1) = Zstd(1,1,k);
+                        obj.d{k}.TFerr(i,2) = Zstd(1,2,k);
+                        obj.d{k}.TFerr(i,3) = Zstd(2,1,k);
+                        obj.d{k}.TFerr(i,4) = Zstd(2,2,k);
+                    case 'Full_Vertical_Components'
+                        %elseif sum(isnan(Ti(:,k)))<2 % not all tippers are NaN
+                        obj.d{k}.TF(i,1) = Ti(1,k);
+                        obj.d{k}.TF(i,2) = Ti(2,k);
+                        obj.d{k}.TFerr(i,1) = Tstd(1,k);
+                        obj.d{k}.TFerr(i,2) = Tstd(2,k);
+                    otherwise
+                        error('Unknown data type');
+                end
+                obj.d{k}.lat(i,1) = tfobj.lat;
+                obj.d{k}.lon(i,1) = tfobj.lon;
+                obj.d{k}.siteLoc(i,:) = tfobj.siteLoc(:);
+                obj.d{k}.siteChar{i} = tfobj.siteChar;
+                obj.d{k}.nSite = obj.d{k}.nSite + 1;
+
+            end
+            
+            obj.nSites = obj.nSites + 1;
+            
+            %disp('Do not forget to run obj = obj.regroup when done adding sites.');
+                   
+        end 
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = setPrimaryCoords(obj,str)
+            % set primaryCoords to 'latlon' or 'xy'
+            
+            obj.primaryCoords = str;
+            for i=1:obj.nPeriods
+                obj.d{i}.primaryCoords = obj.primaryCoords;
+            end
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = setOrigin(obj,mstruct)
+            % (re)define the geographic origin and correspondingly
+            % (re)compute either lat/lon or x/y site coordinates
+            
+            % NOTE: z pointing down! In data files, topography should be
+            % +ve above the "origin". But currently I think z is depth
+            % (since z is pointing down like in the model file), so in
+            % current configuration, -ve values should define topography,
+            % and z0 should be a *negative* value at the sea level to
+            % indicate the distance from the "top of the mountains" to
+            % ground (and the same value should be used in the model file).
+            % All this is unnecessarily confusing and needs to be changed
+            % in the program, probably to reverse the direction of z in the
+            % data file?..
+            % Need to figure it all out. What's currently implemented here
+            % with respect to z will not work correctly. 
+            % This is just a stub to be fixed.
+            % In Matlab, topography in the data file should help create the
+            % model file, anyway.
+            %
+            % 
+            % At a minimum, need to specify:
+            %   mstruct.origin = [lat0,lon0,0]
+            %   mstruct.mapprojection = 'eqdcylin' 
+            %
+            % Some projection options: 
+            % eqdcylin, eqacylin, lambertstd, eqaazim, utm
+            % type 'maps' for all projections
+            % To trigger the homemade projection option, use 
+            %   mstruct.mapprojection = 'latlon2xy'
+            % 
+            % Set up lambertstd like this:
+            % mstruct = defaultm('lambertstd');
+            % mstruct.origin = [lat0,lon0,0];
+            % mstruct.mapparallels = [lat0-3,lat0+3]; % degrees vary
+            %
+            % Set up UTM like this:
+            % z1 = utmzone([latm,lonm]); % e.g., z1 = '15N'
+            % ellipsoid = wgs84Ellipsoid;
+            % mstruct = defaultm('utm');
+            % mstruct.zone = z1;
+            % mstruct.geoid = ellipsoid;
+            %
+            % If using UTM, note that the X/Y coordinates need to include
+            % the binding Northing and Easting for things to work.  
+            
+            lat0 = mstruct.origin(1);
+            lon0 = mstruct.origin(2);
+            if length(mstruct.origin) > 2
+                z0 = mstruct.origin(3);
+            else
+                z0 = 0;
+            end
+                
+            if strcmp(mstruct.mapprojection,'latlon2xy') ...
+                    || strcmp(mstruct.mapprojection,'xy2latlon')
+                % using the homemade projection
+                obj.origin = [lat0,lon0,z0];
+            else
+                % using the matlab toolbox
+                try
+                    mstruct = defaultm(mstruct);
+                catch
+                    try
+                        mstruct = defaultm(mstruct.mapprojection);
+                        mstruct.origin = [lat0,lon0,z0];
+                        mstruct = defaultm(mstruct);
+                    catch
+                        error(['Unknown map projection: ',mstruct.mapprojection]);
+                    end
+                end
+                obj.origin = mstruct.origin;
+            end
+            
+            % recompute x/y or lat/lon depending on which is primary
+            for i=1:obj.nPeriods
+                obj.d{i} = setOrigin(obj.d{i},mstruct);
+            end
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = changeDataType(obj,newdatatype)
+            % allows to change to new data type; this will work to
+            % translate between Full_Impedance, Off_Diagonal_Impedance, and
+            % the Off_Diagonal_Rho_Phase. Other options may be added.
+            
+            if strcmp(obj.type,newdatatype)
+                disp('No type conversion is needed. Command ignored.');
+                return;
+            end
+            
+            % recompute x/y or lat/lon depending on which is primary
+            for i=1:obj.nPeriods
+                obj.d{i} = changeDataType(obj.d{i},newdatatype);
+            end
+            
+            obj.type = newdatatype;
+            obj.compChar = obj.d{1}.compChar;
+            obj.nComp = obj.d{1}.nComp;
+            obj.Cmplx = obj.d{1}.Cmplx;
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = changeUnits(obj,newunits)
+            % allows to change to new units; this only works correctly if
+            % this vector contains one data type
+            % unit options for impedances:
+            % 1) SI units for E/B: [V/m]/[T] (used internally in ModEM code)
+            % 2) practical units for E/B: [mV/km]/[nT]
+            % 3) SI units for E/H: [V/m]/[A/m] = Ohm
+                        
+            for i=1:obj.nPeriods
+                obj.d{i}.units
+                obj.d{i} = changeUnits(obj.d{i},newunits);
+            end
+            obj.units = newunits;
+            
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = changeSignConvention(obj)
+            % allows to flip the sign convention from -ve to +ve and back
+                        
+            for i=1:obj.nPeriods
+                obj.d{i} = changeSignConvention(obj.d{i});
+            end
+            obj.signConvention = - obj.signConvention;
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = addTopography(obj)
+            % replace existing z coordinates with the stored "topography"
+            % (in the future, could extract it from the model, instead)
+            for i=1:obj.nPeriods
+                obj.d{i} = addTopography(obj.d{i});
+            end
+           
+        end
+            
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = removeTopography(obj)
+            % set all z coordinates to zero and store them in "topography"
+            for i=1:obj.nPeriods
+                obj.d{i} = removeTopography(obj.d{i});
+            end
+                       
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = setErrorFloor(obj,f)
+            % set the error floor to fraction f of the data;
+            % save the real errors in "dataErrors"
+            for i=1:obj.nPeriods
+                obj.d{i} = setErrorFloor(obj.d{i},f);
+            end
+            
+                       
+        end
+ 
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = removeErrorFloor(obj)
+            % reverts data errors to original values
+            for i=1:obj.nPeriods
+                if ~isempty(obj.d{i}.dataErrors)
+                    obj.d{i}.TFerr = obj.d{i}.dataErrors;
+                end
+            end
+                       
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj1 = addNoise(obj,relErr)
+            %  Usage : [obj1] = addNoise(obj,relErr)
+            %
+            % adds "realistic" percentage errors, unique for each data point;
+            % for now, works for off diagonal impedance, full impedance or Hz.
+            
+            obj1 = obj;
+            
+            nTx = length(obj.d);
+            
+            for k = 1:nTx
+                [nsite,ncomp] = size(obj.d{k}.TF);
+                temp = obj.d{k}.TF;
+                switch obj.type
+                    case 'Full_Impedance'
+                        stderr = sqrt(abs(temp(:,2).*conj(temp(:,3))));
+                        errScales = repmat(relErr*stderr,1,ncomp);
+                    case 'Off_Diagonal_Impedance'
+                        stderr = sqrt(abs(temp(:,1).*conj(temp(:,2))));
+                        errScales = repmat(relErr*stderr,1,ncomp);
+                    case 'Full_Vertical_Components'
+                        errScales = relErr*ones(nsite,2);
+                    otherwise
+                        error('Random errors for this transfer function type not implemented');
+                end
+                if obj.Cmplx
+                    obj1.d{k}.TF = obj.d{k}.TF + ...
+                        errScales.*(randn(size(obj.d{k}.TF))+1i*randn(size(obj.d{k}.TF)));
+                else
+                    obj1.d{k}.TF = obj.d{k}.TF + errScales.*(randn(size(obj.d{k}.TF)));
+                end
+                obj1.d{k}.TFerr = errScales;
+            end
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = gridCells(obj,grid,per,landORsea,mstruct)
+            % obj = gridCells(obj,grid,per,landORsea,mstruct)
+            %
+            % A utility to create a synthetic site at the center of every
+            % grid cell at the surface of the Earth, no elevation,
+            % for specified periods.
+            % Use addTopography function to create non-zero elevation.
+            % Set landORsea = 'land' to only get continental locations.
+            % Set landORsea = 'sea' for seafloor sites.
+            % Set landORsea = 'all' for all sites.
+            %
+            % If grid is of xygrid type, mstruct is required
+            % to compute the lats & lons; otherwise not required.
+            % See setOrigin() for details.
+            
+            if isa(grid,'xygrid')
+                % if this isn't a latlon grid, need the origin
+                if nargin < 5
+                    error('Usage: dat = mtdata.gridCells(grid,per,''land'',mstruct)');
+                end
+            end
+            
+            if obj.nPeriods ~= length(per)
+                error(['Number of periods does not match. First initialize mtdata object with ' num2str(length(per)) ' periods.']);
+            end
+            
+            for k=1:obj.nPeriods
+                if isa(grid,'xygrid')
+                    obj.d{k} = gridCells(obj.d{k},grid,landORsea,mstruct);
+                    obj.d{k}.primaryCoords = 'xy';
+                else
+                    if nargin < 5
+                        obj.d{k} = gridCells(obj.d{k},grid,landORsea);
+                    else
+                        obj.d{k} = gridCells(obj.d{k},grid,landORsea,mstruct);
+                    end                 
+                    obj.d{k}.primaryCoords = 'latlon';
+                end
+                obj.d{k}.T = per(k);
+            end
+            
+            obj.origin = obj.d{1}.origin;
+            obj.primaryCoords = obj.d{1}.primaryCoords;
+            obj.nSites = obj.d{1}.nSite;
+            
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = gridNodes(obj,grid,per,landORsea,mstruct)
+            % obj = gridNodes(obj,grid,per,landORsea,mstruct)
+            %
+            % A utility to create a synthetic site at every
+            % grid node at the surface of the Earth, no elevation,
+            % for specified periods.
+            % Use addTopography function to create non-zero elevation.
+            % Set landORsea = 'land' to only get continental locations.
+            % Set landORsea = 'sea' for seafloor sites.
+            % Set landORsea = 'all' for all sites.
+            %
+            % If grid is of xygrid type, mstruct is required
+            % to compute the lats & lons; otherwise not required.
+            % See setOrigin() for details.
+            %
+            % If you are using topography, it is ill-advised to place
+            % synthetic sites at cell nodes. Use gridCells, instead.
+           
+            if isa(grid,'xygrid')
+                % if this isn't a latlon grid, need the origin
+                if nargin < 5
+                    error('Usage: dat = mtdata.gridNodes(grid,per,''land'',mstruct)');
+                end
+            end
+            
+            if obj.nPeriods ~= length(per)
+                error(['Number of periods does not match. First initialize mtdata object with ' num2str(length(per)) ' periods.']);
+            end
+            
+            for k=1:obj.nPeriods
+                if isa(grid,'xygrid')
+                    obj.d{k} = gridNodes(obj.d{k},grid,landORsea,mstruct);
+                    obj.d{k}.primaryCoords = 'xy';
+                else
+                    if nargin < 5
+                        obj.d{k} = gridNodes(obj.d{k},grid,landORsea);
+                    else
+                        obj.d{k} = gridNodes(obj.d{k},grid,landORsea,mstruct);
+                    end                 
+                    obj.d{k}.primaryCoords = 'latlon';
+                end
+                obj.d{k}.T = per(k);
+            end
+            
+            obj.origin = obj.d{1}.origin;
+            obj.primaryCoords = obj.d{1}.primaryCoords;
+            obj.nSites = obj.d{1}.nSite;
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = fillNaNs(obj,value)
+            % obj = fillNaNs(obj,value)
+            %
+            % replace all NaNs with obj.nanvalue for output
+            % for a forward modeling template, use zeros for TFs
+            % then, call fillNaNs(obj,0.0)
+            % always use obj.nanvalue for NaN error bars
+            
+            if nargin==1
+                for k=1:obj.nPeriods
+                    obj.d{k} = fillNaNs(obj.d{k});
+                end
+            else
+                for k=1:obj.nPeriods
+                    obj.d{k} = fillNaNs(obj.d{k},value);
+                end
+            end
+
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = delete(obj,siteName)
+            %  Usage : obj = obj.delete(siteName)
+            %
+            % removes a site selected by siteChar or index
+            % CODE NOT FINISHED
+            
+            if isempty(obj.v.code)
+                obj = obj.regroup;
+            end
+            
+            if ischar(siteName)
+                ind = strmatch(strtrim(siteName),strtrim(strjust(obj.v.code,'left')));
+            else
+                ind = siteid;
+            end
+            ind
+            %disp(['Deleting site #' num2str(ind) ' from mtdata']);
+            
+%             nsites = size(obj.v.code,1);
+%             for i = 1:nsites
+%                 disp(['Extract site #' num2str(i) ' from mtdata:']);
+%                 tflist{i} = obj.get(obj.v.code(i,:));
+%             end
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [obj] = clean(obj)
+            %  Usage : obj = obj.clean
+            %
+            % removes artifact sites with empty data
+            
+            for k = 1:obj.nPeriods
+                ibad = zeros(1,obj.d{k}.nSite);
+                for i = 1:obj.d{k}.nSite
+                    if isempty(deblank(obj.d{k}.siteChar(i,:)))
+                        %disp(['Deleting site #' num2str(ind) ' from mtdata period #' num2str(k)]);
+                        ibad(i) = 1;
+                    end
+                end
+                ii = setdiff(1:obj.d{k}.nSite,find(ibad));
+                obj.d{k}.siteLoc = obj.d{k}.siteLoc(ii,:);
+                obj.d{k}.siteChar = obj.d{k}.siteChar(ii,:);
+                obj.d{k}.TF = obj.d{k}.TF(ii,:);
+                obj.d{k}.TFerr = obj.d{k}.TFerr(ii,:);
+                obj.d{k}.lon = obj.d{k}.lon(ii);
+                obj.d{k}.lat = obj.d{k}.lat(ii);
+                obj.d{k}.nSite = length(obj.d{k}.lat);
+            end
+
+            % also clean up the summary - faster than regrouping
+            
+            if ~isempty(obj.v.code)
+                nsites = length(obj.v.lat);
+                ibad = zeros(1,nsites);
+                for i = 1:nsites
+                    if isempty(deblank(obj.v.code{i}))
+                        %disp(['Deleting site #' num2str(ind) ' from mtdata period #' num2str(k)]);
+                        ibad(i) = 1;
+                    end
+                end
+                ii = setdiff(1:nsites,find(ibad));
+                obj.v.loc = obj.v.loc(ii,:);
+                obj.v.code = obj.v.code{ii};
+                obj.v.data = obj.v.data(ii,:,:);
+                obj.v.err = obj.v.err(ii,:,:);
+                obj.v.lon = obj.v.lon(ii);
+                obj.v.lat = obj.v.lat(ii);
+                obj.nSites = length(ii);
+            end
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function tflist = mtdata2tflist(obj)
+            %  Usage : tflist = mtdata2tflist(obj)
+            %
+            % makes an mttf object array out of an mtdata object
+            
+            if isempty(obj.v.code)
+                obj = obj.regroup;
+            end
+            
+            nsites = length(obj.v.code);
+            tflist = cell(1,nsites);
+            for i = 1:nsites
+                disp(['Extract site #' num2str(i) ' from mtdata:']);
+                tflist{i} = obj.get(obj.v.code{i});
+            end
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [status] = write(obj,cfile,format,APRES)
+            % [status] = write(obj,cfile,format,APRES)
+            %
+            % format options: list, matlab, NetCDF
+            % 
+            % APRES=1 is an option to write apparent resistivities and
+            % phases instead of the raw impedances
+            %
+            % optionally, use APRES=metadata to provide additional info,
+            % e.g. metadata.PROJECT = 'CO4_PRED';
+            %      metadata.SURVEY = 'Colorado Hazard Map - Gridded Impedances';
+            % obj.write('./Impedance Maps/XML','xml',metadata);
+            
+            if nargin < 3
+                format = 'list';
+            end
+            
+            if nargin < 4
+                metadata = {};
+                APRES = 0;
+            elseif isstruct(APRES)
+                metadata = APRES;
+                APRES = 0;
+            end
+
+            switch lower(format)
+                case 'simplelist'
+                    % a shortcut only to be used when the same set of sites
+                    % repeats for all periods, e.g. synthetic data
+                    [status] = writeZ_3D_simple(cfile,obj.d,obj.header,obj.units,obj.signConvention,APRES);
+                case 'list'
+                    [status] = writeZ_3D(cfile,obj.d,obj.header,obj.units,obj.signConvention,APRES);
+                case 'xml'
+                    if isempty(obj.v.code)
+                        obj = obj.regroup;
+                    end
+                    if ~exist(cfile,'dir'); mkdir(cfile); end
+                    for i = 1:length(obj.v.code)
+                        if ischar(obj.v.code)
+                            siteid = obj.v.code(i,:);
+                        else
+                            siteid = obj.v.code{i};
+                        end
+                        tf = obj.get(siteid);                      
+                        tf.write_xml([cfile '/' strtrim(tf.tfname) '.xml']);
+                    end
+                case 'matlab'
+                    save(cfile,'obj');
+                case 'netcdf'
+                    disp('Not implemented yet');
+                otherwise
+                    error(['Can''t write to data file format ' format ': method unknown']);
+            end
+
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function  obj2  = ZrotC2S(obj,mstruct)
+         %     
+         %   obj2 = ZrotC2S(obj,projmethod)
+         %   rotates by meridian correction angles to convert
+         %   the data from Cartesian to spherical, using projection.
+         %   subroutine written by Han Qi, Nov 2017
+         
+            if ~strcmp(obj.type,'Full_Impedance') 
+               error('Input data type must be impedance');
+            end
+          
+            obj = obj.rot(mstruct);
+            obj = obj.regroup;
+            tflist = obj.mtdata2tflist;
+            tf2 = tflist;
+            for i = 1:length(tflist)
+                lat = tflist{i}.lat;
+                lon = tflist{i}.lon;
+                rotangle = obj.meridian_convergence_angle(lat,lon,mstruct);
+                tflist{i}.orthogonal = 1;
+                tflist{i}.theta0 = rotangle;
+                tflist{i}.orient = [0 90 0 90];
+                tf2{i} = tflist{i}.rotate(0);
+            end
+            obj2 = obj.tflist2mtdata(tf2,'Full_Impedance');
+            obj2.rotangle = obj.rotangle;
+            obj2.mstruct = obj.mstruct;
+            obj2.predicted = 1;
+            
+         end       
+        
+    end
+    
+    methods(Static)
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [obj,tflist] = read(cfile,format,newUnits,dataType,predicted,nanvalue)
+            %
+            % Usage:  [obj,tflist] = read(cfile,format,newUnits,dataType,predicted,nanvalue)
+            %
+            %  Reads an mtdata object formerly known as allData array
+            %  tflist array of mttf objects is an optional output
+            %  Optional nanvalue allows you to skip masked entries if 
+            %  reading from a list.
+            
+            if nargin < 6
+                nanvalue = NaN;
+            else
+                if ~isnumeric(nanvalue)
+                    nanvalue = str2double(nanvalue);
+                end
+            end
+            
+            obj = mtdata(dataType);
+            
+            if ~exist(cfile,'file') && ~exist(cfile,'dir')
+                error(['Data file(s) ' cfile ' not found']);
+            end
+                        
+            switch lower(format)
+                case 'list'
+                    if mtdata.isComplex(dataType)
+                        [obj.d,obj.header,obj.units,obj.signConvention,obj.origin] ...
+                         = readZ_3D(cfile,newUnits,dataType,nanvalue,1);
+                        obj.Cmplx = 1;
+                    else
+                        [obj.d,obj.header,obj.units,obj.signConvention,obj.origin] ...
+                         = readApres_3D(cfile,newUnits,dataType);
+                        obj.Cmplx = 0;
+                    end
+                    obj.nPeriods = length(obj.d);
+                    % a patch to convert from structure to mtperiod class
+                    % to avoid modifying the data list reading code
+                    for i=1:obj.nPeriods
+                        obj.d{i} = mtperiod(dataType,obj.d{i});
+                    end
+                    [~,obj.filename] = fileparts(cfile);                        
+                case {'xml','edi','z','birrp'}
+                    filedir = cfile;
+                    ext = lower(format);
+                    if strcmp(ext,'z')
+                        tmp1 = findfiles('zss',filedir);
+                        tmp2 = findfiles('zrr',filedir);
+                        tmp3 = findfiles('zmm',filedir);
+                        fname = [tmp1 tmp2 tmp3];
+                    else
+                        fname = findfiles(ext,filedir);
+                    end
+                    tflist = cell(1,length(fname));
+                    for i = 1:length(fname)
+                        tflist{i} = mttf.read(fname{i},ext,dataType);
+                        obj = obj.set(tflist{i});
+                    end
+                    obj.filename = filedir;
+                case 'matlab'
+                    load(cfile,'obj');
+                case 'netcdf'
+                    disp('Not implemented yet');
+                otherwise
+                    error(['Can''t read data format ' format ': method unknown']);
+            end
+            
+            obj = obj.changeUnits(newUnits);
+            
+            if nargin > 4
+                obj.predicted = predicted;
+            end
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function result = isComplex(dataType)
+            %  Usage : result = isComplex(dataType)
+            %
+            % gives a yes or no answer for complexity of a data type based
+            % on a ModEM name
+            
+            switch dataType
+                case {'Full_Impedance','Off_Diagonal_Impedance','Full_Vertical_Components'}
+                    result = 1;
+                case 'Full_Interstation_TF'
+                    result = 1;
+                case {'Off_Diagonal_Rho_Phase','Phase_Tensor'}
+                    result = 0;
+                case {'Ex_Field', 'Ey_Field', 'Bx_Field', 'By_Field', 'Bz_Field'}
+                    result = 1;
+                case 'Pole_Pole_DC_Rho'
+                    result = 0;
+                otherwise
+                    error('This data type is not currently known in ModEM');
+            end
+            
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = tflist2mtdata(tflist,dataType,periods,primaryCoords)
+            %  Usage : obj = tflist2mtdata(tflist,dataType,periods,primaryCoords)
+            %
+            % makes an mtdata object out of an array of mttf objects
+            % periods is an array of real numbers
+            % primaryCoords = 'latlon' or 'xy'
+            % periods and primaryCoords optional, otherwise using tflist{1}
+            
+            if nargin > 3
+                obj = mtdata(dataType,periods,primaryCoords);
+            elseif nargin > 2
+                obj = mtdata(dataType,periods);
+            else
+                obj = mtdata(dataType);
+            end
+            
+            for i = 1:length(tflist)
+                obj = obj.set(tflist{i});
+            end
+            
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function  rotangle = meridian_convergence_angle(lat,lon,mstruct)
+            %
+            % Usage: rotangle = meridian_convergence_angle(lat,lon,mstruct)
+            %
+            % for input vectors of latitude and longitude values, and
+            % projection details mstruct as defined by the Matlab Mapping
+            % Toolbox, computes the rotation angles, relative to geographic 
+            % North, that would compensate for meridian convergence
+            %
+            % for now, it computes rotation angle for five projection
+            % methods
+            %
+            % Subroutine written by Han Qi, Nov 2017
+            % Cleaned up by Anna Kelbert, Oct 2018
+            
+            rotangle = zeros(lat);            
+            
+            switch lower(mstruct.mapprojection)
+                case {'eqdcylin','eqacylin','origin'}
+                    disp('no need to rotate ');
+                case 'lambertstd'
+                    lat1= mstruct.mapparallels(1);
+                    lat2= mstruct.mapparallels(2);
+                    lonm = mstruct.origin(2);
+                    aa = log(cosd(lat1)/cosd(lat2));
+                    bb = log(tand(45+lat2/2)/tand(45+lat1/2));
+                    n = aa/bb;
+                    rotangle= n.*(lon-lonm);
+                case 'eqaazim'
+                    latm = mstruct.origin(1);
+                    lonm = mstruct.origin(2);
+                    a = sind(latm);
+                    b = cosd(latm);
+                    
+                    for i = 1:length(mtdata.lat)
+                        c = sind(lon(i)-lonm);
+                        d = cosd(lon(i)-lonm);
+                        e = sind(lat(i));
+                        f = cosd(lat(i));
+                        
+                        m = 1+a*e+b*f*d;
+                        k = (2/m)^0.5;
+                        pm = a*f-b*e*d;
+                        pk = -pm/m^2*(m/2)^0.5;
+                        px = pk*f*c-k*e*c;
+                        py = pk*(b*e-a*f*d)+k*(b*f+a*e*d);
+                        
+                        rotangle(i) = atand(-px/py);
+                    end
+                case 'utm'
+                    lonm = mstruct.origin(2);
+                    rotangle = atand(tand(mtdata.lon-lonm).*sind(lat));
+                otherwise
+                    error(['Cannot compute meridian convergence: unknown projection ',mstruct.mapprojection]);
+            end
+        end
+
+    end    
+end

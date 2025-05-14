@@ -1,0 +1,44 @@
+#!/usr/bin/env python
+import sys
+import argparse
+import numpy as np
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d
+
+from PyModEM import Mackie2DModel
+
+description = '''Create a 2D plot of ModEM Mackie2D File'''
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('rho_file', help='Filepath to the rho model', type=str)
+parser.add_argument('-s', '--save', help='Use to save file (append .png to filename)', default=False, action='store_true')
+
+args = parser.parse_args()
+
+mesh_filename = args.rho_file
+save = args.save
+
+y, z, rhos, _ = Mackie2DModel.load2(mesh_filename)
+
+y_half = len(y) / 2
+
+y = np.arange(-y_half, y_half)
+z = np.arange(0, len(z), 1)
+
+fig, ax = plt.subplots()
+
+rhos = np.exp(rhos)
+
+C = ax.pcolormesh(y, z, rhos, norm='log')
+
+ax.invert_yaxis()
+ax.set_xlabel('km')
+ax.set_ylabel('Depth (km)')
+
+fig.colorbar(C, ax=ax, label='Ωm')
+
+if not save:
+    plt.show()
+else:
+    plt.savefig(mesh_filename + '.png')
