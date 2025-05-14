@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+import sys
+import argparse
+
+from typing import Tuple
+
+REAL_SIZE = 8
+N_POLARIZATIONS = 2
+
+COMPLEX_SIZE = 2 * REAL_SIZE
+
+
+
+BYTES_TO_MB = 1000000.0
+BYTES_TO_GB = 1000000000.0
+MB_TO_GB = 1000.0
+
+def calculate_esoln_bytes(nPeriods : int, nx : int, ny : int, nz : int) -> Tuple[int, int]:
+    total_elms = N_POLARIZATIONS * (nTx * ((3 * nx * 3 * ny * 3 * nz) + 6))
+    total_bytes = total_elms * COMPLEX_SIZE
+    return float(total_elms), float(total_bytes)
+
+def calculate_grid_size_bytes(nx : int, ny : int, nz : int) -> Tuple[int, int]:
+    total_elms = nx * ny * nz
+    total_bytes = total_elms * REAL_SIZE
+    return float(total_elms), float(total_bytes)
+
+description = '''Estimite the size of a ModEM Run'''
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('nPeriods', help="Number of periods", type=int)
+parser.add_argument('nx', help='Number of cells in x direction', type=int)
+parser.add_argument('ny', help='Number of cells in y direction', type=int)
+parser.add_argument('nz', help='Number of cells in z direction', type=int)
+args = parser.parse_args()
+
+nPeriods = args.nPeriods
+nx = args.nx
+ny = args.ny
+nz = args.nz
+nTx = nPeriods 
+
+em_elms, em_bytes = calculate_esoln_bytes(nPeriods, nx, ny, nz)
+
+print(f"# EM Solution Memory ")
+print(f"Total Elms: {em_elms:,}")
+print(f"Total Size: {em_bytes:,} bytes - {em_bytes / BYTES_TO_MB:,} mb - {em_bytes / BYTES_TO_GB:,} gb")
+
+
+rho_elms, rho_bytes = calculate_grid_size_bytes(nx, ny, nz)
+print(rho_elms, rho_bytes)
+print(f"\n# Model Memory ")
+print(f"Total Elms: {rho_elms:,}")
+print(f"Total Size: {rho_bytes} bytes - {(rho_bytes / BYTES_TO_MB)} mb - {(rho_bytes / BYTES_TO_GB)} gb")
+
+total_bytes = float(rho_bytes + em_bytes)
+print(f"\n# Total Memory")
+print(f"Total Bytes: {total_bytes:,} bytes - {total_bytes / BYTES_TO_MB:,} mb - {total_bytes / BYTES_TO_GB:,} gb ")

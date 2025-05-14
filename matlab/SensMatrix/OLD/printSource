@@ -1,1 +1,0 @@
-a2ps -c -nP JT_times_d.m JT_times_d_MTX.m J_times_m.m J_times_m_MTX.m Jmult.m JmultT.m JmultT_MTX.m Jmult_MTX.m condCellToMatrix.m condDataMapTest.m fwdPred.m makeSens.m readSensMat.m sensTest.m writeCondMTX.m   | lpr -d

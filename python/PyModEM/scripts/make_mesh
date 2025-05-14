@@ -1,0 +1,137 @@
+#!/Users/mcurry/venv/modem/bin/python3
+import sys
+import math
+import argparse
+import numpy as np
+
+
+def make_rho_fname(append: str, nx: int, ny: int, nz: int, type: str) -> str:
+    ncells = nx * ny * nz
+    return f"{append}.{str(nx)}x{str(ny)}x{str(nz)}.{str(ncells)}.{type}.rho"
+
+def create_clean_model(mesh, ohms: float, name:str) -> str:
+    rhos = mesh.res_model
+
+    rhos[:,:,:] = math.log(ohms)
+
+    nx = rhos.shape[0]
+    ny = rhos.shape[1]
+    nz = rhos.shape[2]
+
+    fname = make_rho_fname(f"{str(int(ohms))}ohms", nx, ny, nz, name)
+    mesh.to_modem(model_fn=fname)
+
+    return fname
+
+description = "From a ModEM data file, create an idealized model file and 1, 10 and 100 Ohm model files"
+parser = argparse.ArgumentParser(prog="Make ModEM Mesh", description=description)
+parser.add_argument('data_fname',
+                    help='Filename to store the data',
+                    type=str)
+parser.add_argument('model_name',
+                    help='Name to use to append to the rho files',
+                    type=str)
+parser.add_argument('size_east',
+                    help='Size of cells in the east direction in meters',
+                    type=str)
+parser.add_argument('size_north',
+                    help='Size of the cells in the north direction in meters',
+                    type=str)
+parser.add_argument('-d',
+                    '--target_depth',
+                    help='Target depth in the z direction in meters (default 500,000m)',
+                    type=float,
+                    default=500000)
+parser.add_argument('-z',
+                    '--nz',
+                    help='Number of z layers (default 36)',
+                    type=int,
+                    default=36)
+parser.add_argument('-f',
+                    '--first_z',
+                    help='Size of first z level (default 70m)',
+                    type=float,
+                    default=70)
+
+args = parser.parse_args()
+
+data_fname = args.data_fname
+model_name = args.model_name
+size_east = int(args.size_east)
+size_north = int(args.size_north)
+target_depth = args.target_depth
+nz = int(args.nz)
+first_z = args.first_z
+
+# Importing mtpy is slow, so put this here to avoid slowness on argument evaluation
+from mtpy import MTData
+from mtpy.modeling import StructuredGrid3D
+
+mtd = MTData()
+mtd.from_modem(data_fname)
+
+mesh = StructuredGrid3D()
+mesh.station_locations = mtd.station_locations
+mesh.center_point = mtd.center_point
+
+print("MTD Center Point", mtd.center_point)
+
+mesh.cell_size_east = size_east
+mesh.cell_size_north = size_north
+
+mesh.pad_east = 9
+mesh.pad_north = 9
+mesh.ew_ext = 2550000
+mesh.ns_ext = 2550000
+
+mesh.z1_layer = first_z
+mesh.n_layers = nz
+mesh.z_target_depth = target_depth
+mesh.pad_z = 1
+mesh.pad_stretch_v = 1.5
+
+mesh.make_mesh()
+
+rhos = mesh.res_model
+
+fname = create_clean_model(mesh, 1000, model_name)
+print("Writing 1000 ohm model to:", fname)
+
+#fname = create_clean_model(mesh, 200, model_name)
+##print("Writing 200 ohm model to:", fname)
+###
+##fname = create_clean_model(mesh, 100, model_name)
+##print("Writing 100 ohm model to:", fname)
+###
+##fname = create_clean_model(mesh, 50, model_name)
+##print("Writing 50 ohm model to:", fname)
+###
+##fname = create_clean_model(mesh, 20, model_name)
+##print("Writing 20 ohm model to:", fname)
+###
+##fname = create_clean_model(mesh, 10, model_name)
+##print("Writing 10 ohm model to:", fname)
+
+nx = rhos.shape[0]
+ny = rhos.shape[1]
+nz = rhos.shape[2]
+
+rhos[:,:,:] = 4.60517
+
+start_x = nx//3; end_x = nx//2
+start_y = ny//3; end_y = ny - (ny//3)
+rhos[start_x:end_x, start_y:end_y, 0:nz//2] = 3.60517
+
+start_x = nx//2; end_x = (nx - (nx//3))
+start_y = ny//3; end_y = (ny - (ny//3))
+rhos[start_x:end_x, start_y:end_y, 0:nz//2] = 6.090776
+
+mesh.res_model = rhos
+
+nx = rhos.shape[0]
+ny = rhos.shape[1]
+nz = rhos.shape[2]
+
+idealized_fname = make_rho_fname("real", nx, ny, nz,model_name)
+mesh.to_modem(model_fn=idealized_fname)
+print("Writing idealized/real model to:", fname)

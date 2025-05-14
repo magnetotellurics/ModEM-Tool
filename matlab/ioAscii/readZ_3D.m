@@ -46,7 +46,6 @@ while 1
     if l < 0; break; end         % end of file
 
     while ~contains(string(l),'>')       % loop until find the magic record
-        disp(l)
         header = [header l];
         l=fgetl(fid);
     end
