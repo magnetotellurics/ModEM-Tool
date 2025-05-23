@@ -24,6 +24,7 @@ setup(
             "scripts/read_mesh",
             "scripts/read_modem_data",
             "scripts/sort_report",
-            "scripts/synth_error"
+            "scripts/synth_error",
+            "scripts/csem_covariance"
             ]
 )

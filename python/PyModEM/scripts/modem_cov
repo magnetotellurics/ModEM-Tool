@@ -1,0 +1,104 @@
+#!/Users/mcurry/venv/modem/bin/python
+import argparse
+
+import math
+import numpy as np
+
+from PyModEM import ModEMGrid
+
+description='''ModEM Covariance - Script to create a covariance file for a ModEM resistivity file.
+
+            This script is an access script to ModEM Grid to create a ModEM Covariance files. Given a resistivity file,
+            create a covariance file. If -m is passed, water will be masked to the value set b -w in ohms(default 0.3).
+
+            For matching water conductivy, an episoln value is used (default 0.00005), but can be changed by the -e
+            argument.
+
+            Likewise, smoothing can be applied using `-s [x_smoothing, y_smoothing]`.
+
+            If -p prior_fanme is passed, a prior file will be created.
+            '''
+epilog=''' '''
+parser = argparse.ArgumentParser(prog='modem_cov',
+                                 description=description)
+parser.add_argument('rho_fname',
+                    help='Filepath to the rho model',
+                    type=str)
+parser.add_argument('-c', '--cov_fname', 
+                    help='Name for covariance file (optional)', 
+                    type=str,
+                    default=None)
+parser.add_argument('-p', '--prior_fname',
+                    help='If present, create a prior model with given name',
+                    type=str,
+                    default=None)
+parser.add_argument('-b', '--base_model_value', 
+                    help='Value to use as base model (default 100ohms)', 
+                    type=float, 
+                    default=100)
+parser.add_argument('-m', '--mask_water',
+                    help='If true, mask water. Use -w to set valeu of water. Default: 0.3 ohms',
+                    action='store_false',
+                    default=True
+                    )
+parser.add_argument('-w', '--water_cond',
+                    help='Conductivity of water to use (must match value in rho_file). In ohms. Default 0.3',
+                    type=float,
+                    default=0.3)
+parser.add_argument('-e', '--esp',
+                    help='Espilon value to use when comparing water_cond and rho values',
+                    type=float,
+                    default=0.00005)
+parser.add_argument('-s', '--smoothing',
+                    help='Smoothing of x and y direction default [0.0, 0.0]',
+                    nargs=2,
+                    type=float,
+                    default=[0.0, 0.0])
+parser.add_argument('-z', '--z_smoothing',
+                    help='Vertical smoothing in z direction - default 0.0',
+                    type=float,
+                    default=0.0)
+parser.add_argument('-n', '--n_smoothing',
+                    help='Number of times to apply smoothing (default 0)',
+                    type=int,
+                    default=0)
+
+args = parser.parse_args()
+
+rho_fname = args.rho_fname
+cov_fname = args.cov_fname
+prior_fname = args.prior_fname
+base_model_value = args.base_model_value
+
+mask_water = args.mask_water
+water_cond = args.water_cond
+esp = args.esp
+
+smoothing = args.smoothing
+z_smoothing = args.z_smoothing
+n_smoothing = args.n_smoothing
+
+if cov_fname is None:
+    cov_fname = rho_fname + '.cov'
+
+csem = ModEMGrid.ModEMGrid(fname=rho_fname)
+
+if args.mask_water:
+    print(f"MODEM_COV: Masking water with {water_cond} ({water_cond} +/- {esp})...")
+    csem.mask_water(water_cond=water_cond, esp=esp)
+
+csem.write_covariance(cov_fname,
+                      x_smoothing=smoothing[0],
+                      y_smoothing=smoothing[1],
+                      z_smoothing=z_smoothing,
+                      n_smoothing=n_smoothing)
+
+print(f"MODEM_COV: Created covariance file for {rho_fname}: {cov_fname}")
+
+
+if prior_fname is not None:
+    csem.rhos = np.where((csem.rhos >= math.log(water_cond) - esp) & (csem.rhos <= math.log(water_cond) + esp),
+                          csem.rhos,
+                          math.log(base_model_value))
+    csem.write_grid(prior_fname)
+    print(f"MODEM_COV: Created prior file: {prior_fname}")
