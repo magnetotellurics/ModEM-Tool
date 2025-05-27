@@ -25,6 +25,6 @@ setup(
             "scripts/read_modem_data",
             "scripts/sort_report",
             "scripts/synth_error",
-            "scripts/csem_covariance"
+            "scripts/modem_cov"
             ]
 )

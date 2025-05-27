@@ -8,19 +8,20 @@ from PyModEM import ModEMGrid
 
 description='''ModEM Covariance - Script to create a covariance file for a ModEM resistivity file.
 
-            This script is an access script to ModEM Grid to create a ModEM Covariance files. Given a resistivity file,
-            create a covariance file. If -m is passed, water will be masked to the value set b -w in ohms(default 0.3).
+This script is an access script to ModEM Grid to create a ModEM Covariance files. Given a resistivity file,
+create a covariance file. If -m is passed, water will be masked to the value set b -w in ohms(default 0.3).
 
-            For matching water conductivy, an episoln value is used (default 0.00005), but can be changed by the -e
-            argument.
+For matching water conductivy, an episoln value is used (default 0.00005), but can be changed by the -e
+argument.
 
-            Likewise, smoothing can be applied using `-s [x_smoothing, y_smoothing]`.
+Likewise, smoothing can be applied using `-s [x_smoothing, y_smoothing]`.
 
-            If -p prior_fanme is passed, a prior file will be created.
-            '''
-epilog=''' '''
+If -p prior_fanme is passed, a prior file will be created.
+'''
+
 parser = argparse.ArgumentParser(prog='modem_cov',
-                                 description=description)
+                                 description=description,
+                                 formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('rho_fname',
                     help='Filepath to the rho model',
                     type=str)
@@ -38,8 +39,8 @@ parser.add_argument('-b', '--base_model_value',
                     default=100)
 parser.add_argument('-m', '--mask_water',
                     help='If true, mask water. Use -w to set valeu of water. Default: 0.3 ohms',
-                    action='store_false',
-                    default=True
+                    action='store_true',
+                    default=False
                     )
 parser.add_argument('-w', '--water_cond',
                     help='Conductivity of water to use (must match value in rho_file). In ohms. Default 0.3',
