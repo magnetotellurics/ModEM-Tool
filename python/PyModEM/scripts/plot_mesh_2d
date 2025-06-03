@@ -8,9 +8,17 @@ from mpl_toolkits.mplot3d import axes3d
 
 from PyModEM import Mackie2DModel
 
-description = '''Create a 2D plot of ModEM Mackie2D File'''
+description = '''Create a 2D plot of ModEM Mackie2D File
 
-parser = argparse.ArgumentParser(description=description)
+NOTE: This plot function should probably not be used for creating academic
+style plots, but can be used to just give a look at models.
+
+For more academic plots, you might want to use the MatLab code instead.
+
+'''
+
+parser = argparse.ArgumentParser(description=description,
+                                 formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('rho_file', help='Filepath to the rho model', type=str)
 parser.add_argument('-s', '--save', help='Use to save file (append .png to filename)', default=False, action='store_true')
 

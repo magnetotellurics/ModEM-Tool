@@ -100,7 +100,7 @@ class ModEMCovariance:
                               y_smoothing: float,
                               z_smoothing: float,
                               n_smoothing: int,
-                              mask : np.ndarry = None):
+                              mask : np.ndarray = None):
         ''' write_covariance(fname, grid, x_smoothing, y_smoothing, z_smoothing, n_smoothing, mask)
 
         Open and write a ModEM covariance file in fname using grid and the above
