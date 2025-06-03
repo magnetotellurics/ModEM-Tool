@@ -45,8 +45,21 @@ def update_error(data: ModEMData, method : str, percent=0.05, std=1.0):
                 dong_method(zxx, zxy, zyx, zyy, percent=percent, std=std)
 
 
-description = "Generate a synthetic error for a ModEM data file"
-parser = argparse.ArgumentParser(prog="Synthetic Error", description=description)
+description = """Generate a synthetic error for a ModEM data file
+
+You can use this script to alter the error of a data file to create some
+synthetic errors. Before running this file, you should first perform the forward
+opteration of your true model onto your data file. Then, run the datafile
+through this script.
+
+Note: This script currently only works with Full Impedeances data type. It
+needs to be updated to use other MT and CSEM datatypes.
+"""
+
+# TODO: Update this script to use /
+parser = argparse.ArgumentParser(prog="Synthetic Error",
+                                 description=description,
+                                 formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('data_fname',
                     help='Data filename to alter',
                     type=str)

@@ -20,13 +20,13 @@ class ModEMGridData:
 
     Parameters
     ----------
-    grid_ew : np.ndarry
+    grid_ew : np.ndarray
         Grid spacing in the east, west direction
-    grid_ns : np.ndarry
+    grid_ns : np.ndarray
         Grid spacing in the north, south direction
-    grid_z : np.ndarry
+    grid_z : np.ndarray
         Grid spacing in the z direction
-    rhos : np.ndarry
+    rhos : np.ndarray
         Cell resistivities
     origin : Tuple[float, float]
         Coordinate origin
@@ -241,7 +241,7 @@ class ModEMGrid:
         return nx, ny, nz, resistivity_type 
 
 
-    def read_dim(self, file: TextIO, n: int) -> np.ndarry:
+    def read_dim(self, file: TextIO, n: int) -> np.ndarray:
         ''' read_dim(self, file, n) - Read model file grid spacing/dimensions
 
         Parameters
@@ -266,7 +266,7 @@ class ModEMGrid:
         arry = np.array(arry)
         return arry.astype(float)
 
-    def read_rhos(self, file: TextIO, nx: int, ny: int, nz: int) -> np.ndarry:
+    def read_rhos(self, file: TextIO, nx: int, ny: int, nz: int) -> np.ndarray:
         ''' read_rhos(self, file, nx, ny, nz) - Read the rhos/resistivites from a file
 
         Parameters
@@ -413,7 +413,7 @@ class ModEMGrid:
     def _write_orientation(self, file, orientation: float):
         file.write(f"{orientation}\n")
 
-    def mask_water(self, water_cond=0.3, esp=0.0005) -> np.ndarry:
+    def mask_water(self, water_cond=0.3, esp=0.0005) -> np.ndarray:
         ''' mask_water(self, water_cond=0.3, esp=0.0005) - Mask water where rho
         value equals water_cond +/- esp
 
