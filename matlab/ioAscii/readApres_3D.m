@@ -153,7 +153,9 @@ for j = 1:length(per)
     allData{j}.nComp = ncomp;
     %allData{j}.compChar(1:ncomp) = '';
     allData{j}.siteLoc = allsitesloc;
-    allData{j}.siteChar = allsites;
+    for isite = 1:size(allsites,1)
+        allData{j}.siteChar{isite} = allsites(isite,:);
+    end
     allData{j}.Z(1:nsites,1:ncomp) = NaN;
     allData{j}.Zerr(1:nsites,1:ncomp) = NaN;
     allData{j}.origin = [origin' 0];
