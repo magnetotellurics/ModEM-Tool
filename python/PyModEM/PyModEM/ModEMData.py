@@ -10,7 +10,7 @@ NUM_HEADER_LINES = 8
 
 DATA_TYPE_COMPONENT_MAP = {'Full_Impedance' : ['ZXX', 'ZXY', 'ZYX', 'ZYY'],
                          'Off_Diagonal_Impedance' : ['ZXY', 'ZYX'],
-                         'Full_Vertical_Components' : ['TX', 'TY'],
+                         'Full_Vertical_Components' : ['TX ', 'TY '],
                          'Full_Interstation_TF' : ['MXX', 'MXY', 'MYX', 'MYY'],
                          'Off_Diagonal_Rho_Phase' : ['RHOXY', 'PHSXY', 'RHOYX', 'PHSYX'],
                          'Phase_Tensor' : ['PTXX', 'PTXY', 'PTYX', 'PTYY'],
