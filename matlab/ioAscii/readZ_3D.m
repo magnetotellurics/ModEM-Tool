@@ -92,6 +92,7 @@ while 1
             comp = ['ZXX';'ZXY';'ZYX';'ZYY'];
             info{1}.data = nan(nSites,nTx,ncomp)+1i*nan(nSites,nTx,ncomp);
             info{1}.err = nan(nSites,nTx,ncomp);
+            info{1}.type = 'Full_Impedance';
             if ~newformat
                 % BEFORE ADDING AZIMUTH ANGLES
                 data = textscan(fid,'%f %s %f %f %f %f %f %s %f %f %f');
@@ -161,6 +162,7 @@ while 1
             comp = ['ZXY';'ZYX'];
             info{1}.data = nan(nSites,nTx,ncomp);
             info{1}.err = nan(nSites,nTx,ncomp);
+            info{1}.type = 'Off_Diagonal_Impedance';
             if ~newformat
                 % BEFORE ADDING AZIMUTH ANGLES
                 data = textscan(fid,'%f %s %f %f %f %f %f %s %f %f %f');
@@ -198,6 +200,7 @@ while 1
             %info{1}.ncomp = 8;
             %info{1}.comp = ['ZXX';'ZXY';'ZYX';'ZYY'];
         case 'Off_Diagonal_Rho_Phase'
+            warning("Will convert 'Off_Diagonal_Rho_Phase' into Full_Impedance. Use 'readApres_3D' to read 'Off_Diagonal_Rho_Phase' without conversion")
             if ~isempty(onetype) && ~strcmp(onetype,strtrim(dataType))
                 % just keep reading... won't use
             end
@@ -267,6 +270,7 @@ while 1
                 info{1}.err(k,:,3) = Zstd(2,1,:);
                 info{1}.err(k,:,4) = Zstd(2,2,:);
             end
+            info{1}.type  = 'Full_Impedance';
             info{1}.code = codes;
             info{1}.per = periods;
             info{1}.ncomp = 8;
@@ -280,6 +284,7 @@ while 1
             end
             ncomp = 2;
             comp = ['TX ';'TY '];
+            info{2}.type  = 'Full_Vertical_Components';
             info{2}.data = nan(nSites,nTx,ncomp);
             info{2}.err = nan(nSites,nTx,ncomp);
             if ~newformat
