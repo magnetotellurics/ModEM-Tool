@@ -70,6 +70,7 @@ while 1
             end
             ncomp = 4;
             comp = ['RHOXY';'PHSXY';'RHOYX';'PHSYX'];
+            info{1}.type = 'Off_Diagonal_Rho_Phase';
             info{1}.data = nan(nSites,nTx,ncomp);
             info{1}.err = nan(nSites,nTx,ncomp);
             data = textscan(fid,'%f %s %f %f %f %f %f %s %f %f');
