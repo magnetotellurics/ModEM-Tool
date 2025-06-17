@@ -109,6 +109,11 @@ while 1
 end
 status = fclose(fid);
 
+
+if exist('info', 'var') == 0
+    error("The requested onetype '%s' was not in the file '%s'", onetype, cfile);
+end
+
 % if two data types are present, merge the periods
 if length(info) == 1
     per = info{1}.per;
@@ -172,6 +177,7 @@ for j = 1:length(per)
             allData{j}.Zerr(irx,icomp1:icomp2) = SI_factor*squeeze(info{k}.err(:,itx(k),:));
             allData{j}.compChar(icomp1:icomp2,:) = info{k}.comp;
             icomp1 = icomp2+1;
+            allData{j}.type = info{k}.type;
         end
     end
 end
