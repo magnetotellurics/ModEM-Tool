@@ -38,6 +38,7 @@ end
 
 origin = [NaN NaN];
 nDataTypes = 0;
+seenDataTypes = strings(0);
 
 %  read the data: one block per data type
 while 1
@@ -51,6 +52,7 @@ while 1
         l=fgetl(fid);
     end
     dataType = sscanf(l,'> %s');
+    seenDataTypes = [seenDataTypes, dataType];
     %tmp = textscan(fid,'# %s',1,'delimiter','\n');
     %tmp = char(tmp{1});
     %if isempty(tmp); break; end
@@ -96,6 +98,7 @@ while 1
             info{nDataTypes}.data = nan(nSites,nTx,ncomp)+1i*nan(nSites,nTx,ncomp);
             info{nDataTypes}.err = nan(nSites,nTx,ncomp);
             info{nDataTypes}.type = 'Full_Impedance';
+            info{nDataTypes}.units = units;
             if ~newformat
                 % BEFORE ADDING AZIMUTH ANGLES
                 data = textscan(fid,'%f %s %f %f %f %f %f %s %f %f %f');
@@ -169,6 +172,7 @@ while 1
             info{nDataTypes}.data = nan(nSites,nTx,ncomp);
             info{nDataTypes}.err = nan(nSites,nTx,ncomp);
             info{nDataTypes}.type = 'Off_Diagonal_Impedance';
+            info{nDataTypes}.units = units;
             if ~newformat
                 % BEFORE ADDING AZIMUTH ANGLES
                 data = textscan(fid,'%f %s %f %f %f %f %f %s %f %f %f');
@@ -225,6 +229,7 @@ while 1
             comp = ['RHOXY';'PHSXY';'RHOYX';'PHSYX'];
             info{nDataTypes}.data = nan(nSites,nTx,ncomp);
             info{nDataTypes}.err = nan(nSites,nTx,ncomp);
+            info{nDataTypes}.units = units;
             if ~newformat
                 % BEFORE ADDING AZIMUTH ANGLES
                 data = textscan(fid,'%f %s %f %f %f %f %f %s %f %f %f %f %f');
@@ -305,6 +310,7 @@ while 1
             info{nDataTypes}.type = 'Full_Vertical_Components';
             info{nDataTypes}.data = nan(nSites,nTx,ncomp);
             info{nDataTypes}.err = nan(nSites,nTx,ncomp);
+            info{nDataTypes}.units = units;
             if ~newformat
                 % BEFORE ADDING AZIMUTH ANGLES
                 data = textscan(fid,'%f %s %f %f %f %f %f %s %f %f %f');
@@ -349,17 +355,30 @@ while 1
             info{nDataTypes}.per = periods;
             info{nDataTypes}.ncomp = 4;
             info{nDataTypes}.comp = comp;
-            if ~isempty(onetype) && strcmp(onetype,strtrim(dataType))
-                tmp = info{nDataTypes}; clear info; info{nDataTypes} = tmp; units = []; SI_factor = 1;
-            elseif ~isempty(onetype)
-                tmp = info{nDataTypes}; clear info; info{nDataTypes} = tmp; % a clutch to fix later    
-            end
         otherwise
             disp('Unknown data type');
             break;
     end   
 end
 status = fclose(fid);
+
+% If requested, only return one datatype
+if ~isempty(onetype)
+    tmp_info = {};
+    for i = 1:length(info)
+        if strcmp(onetype, strtrim(info{i}.type))
+            tmp_info{1} = info{i};
+            units = info{i}.units;
+        end
+    end
+    info = tmp_info;
+
+    if isempty(info)
+        error_msg = sprintf("Requested onetype '%s' is not present in the file '%s'", onetype, cfile);
+        resolve_message = sprintf("Please choose a datatype that is in this file: '[ %s ]'", join(seenDataTypes, " | "));
+        error(error_msg + newline + newline + resolve_message);
+    end
+end
 
 % if two data types are present, merge the periods
 if length(info) == 1
@@ -395,10 +414,6 @@ for j = 1:length(per)
     for k = 2:length(info)
         for i = 1:length(info{k}.code)
             if isempty(intersect(allsites,info{k}.code(i,:),'rows'))
-                disp('All sites')
-                size(allsites)
-                disp("info code")
-                size(info{k}.code)
                 allsites = [allsites; info{k}.code(i,:)];
                 allsitesloc = [allsitesloc; info{k}.loc(i,:)];
                 allsiteslat = [allsiteslat; info{k}.lat(i)];
@@ -409,7 +424,6 @@ for j = 1:length(per)
     nsites = length(allsites);
     allData{j}.T = per(j);
     allData{j}.Cmplx = 1;
-    allData{j}.units = units;
     allData{j}.signConvention = isign;
     allData{j}.nComp = ncomp;
     %allData{j}.compChar(1:ncomp) = '';
@@ -437,6 +451,7 @@ for j = 1:length(per)
             allData{j}.Zerr(irx,icomp1:icomp2) = SI_factor*squeeze(info{k}.err(:,itx(k),:));
             allData{j}.compChar(icomp1:icomp2,:) = info{k}.comp;
             allData{j}.type = info{k}.type;
+            allData{j}.units = units;
             icomp1 = icomp2+1;
         end
     end
