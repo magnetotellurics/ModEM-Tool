@@ -426,6 +426,7 @@ for j = 1:length(per)
     allData{j}.Cmplx = 1;
     allData{j}.signConvention = isign;
     allData{j}.nComp = ncomp;
+    allData{j}.nanvalue = nanvalue;
     %allData{j}.compChar(1:ncomp) = '';
     allData{j}.siteLoc = allsitesloc;
     for isite = 1:size(allsites,1) % quick fix as of 20190301. Clean up later
@@ -438,6 +439,7 @@ for j = 1:length(per)
     allData{j}.orient = orientation;
     allData{j}.lat = allsiteslat';
     allData{j}.lon = allsiteslon';
+    allData{j}.type = strings(0);
     icomp1 = 1;
     for k = 1:length(info)
         if itx(k) > 0
@@ -450,7 +452,7 @@ for j = 1:length(per)
             allData{j}.Z(irx,icomp1:icomp2) = SI_factor*squeeze(info{k}.data(:,itx(k),:));
             allData{j}.Zerr(irx,icomp1:icomp2) = SI_factor*squeeze(info{k}.err(:,itx(k),:));
             allData{j}.compChar(icomp1:icomp2,:) = info{k}.comp;
-            allData{j}.type = info{k}.type;
+            allData{j}.type = [allData{j}.type, info{k}.type];
             allData{j}.units = units;
             icomp1 = icomp2+1;
         end
