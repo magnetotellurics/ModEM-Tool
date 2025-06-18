@@ -263,3 +263,6 @@ if ncomp > 4
 end
 
 status = fclose(fid);
+
+
+function [] = write_z()
