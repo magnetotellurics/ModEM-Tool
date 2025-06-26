@@ -1,13 +1,37 @@
 function [allData,header,units,isign,origin,info] = readApres_3D(cfile,newunits,onetype)
-%  Usage:  [allData,header,units,isign,origin,info] = readApres_3D(cfile,newunits,onetype);
-%   read contents of cell array allData from file
-%   cfile.  There is one cell per period; each
-%   cell contains all information necessary to define
-%   data (locations, values, error standard dev) for
-%   each period (transmitter)
-%   Site locations units have to match the model, i.e. use meters.
-%   If onetype is specified, only read that data type and skip others.
-%  Same as readZ_3D but for the real apparent resistivity and phase.
+% readApres_3D - Read Phase_Tensor and Off_Diagonal_Rho_Phase data types
+%  Usage: [allData, header, units, isign, origin, info] = readApres_3D(cfile, newunits, onetype)
+%
+%  Same as readZ_3D, but for apparent resistivity and phase
+%  (Off_Diagonal_Rho_Phase and Phase_Tensor).
+%
+% Input Arguments
+%  cfile - Required - Filename to read from
+%   string value
+%  newunits - Optional - Units to convert data too either: '[mV/km]/[nT]', '[V/m]/[T]', '[V/m]/[A/m]', 'Ohm', or ''.
+%       Unit conversion is performed by ImpUnits
+%   string value
+%  onetype - Optional - If present, only read that data type and skip others
+%   string value
+%
+% Output Arguments
+%   allData - Cell array, one cell per period, containing all data for all data types that were
+%           in that had data for that period
+%    cell array
+%   header - The comment for the file (very first line)
+%    string value
+%   units - Units that the data has been converted too, or if 'newunits' was not present, the
+%       units associated with the file
+%    string value
+%   isign - The sign of the data either -1 or 1
+%    integer value
+%   origin - [X,Y] values of data origin
+%    double array
+%   info - Cell array, one cell per data type containing all data of data type including
+%     data, err, units, and site location (lat, lon, xyz location)
+%    cell array
+%
+% See also readZ_3D, writeZ_3D, ImpUnits, mtdata
 %  (c) Anna Kelbert, 2011-2013
 
 
