@@ -1,12 +1,36 @@
 function [status] = writeZ_3D(cfile, allData, header, units, isign, convert_to_apres)
-%  Usage:  [status] = writeZ_3D(cfile, allData, header, units, isign, convert_to_apres);
-%   write contents of cell array allData to file
-%   cfile.  There is one cell per period; each
-%   cell contains all information necessary to define
-%   data (locations, values, error standard dev) for
-%   each period (transmitter)
-%   Site locations units have to match the model, i.e. use meters.
-%   Last mod. in Dec 2016 to allow a data object instead of data structure.
+% writeZ_3D - Write contents of cell array, allData to file cfile in ModEM ASCII 'list' format
+%  Usage: [status] = writeZ_3D(cfile, allData, header, units, isign, convert_to_apres)
+%
+% allData should be a cell array, with one period for each cell that contain all
+% necessary data, location, error bars needed for each transmitter. To create this
+% data, either use readZ_3D/readApres_3D, or use the mtdata class.
+%
+% This function should be used incongunction with either readZ_3D or mtdata. You
+% should use those functions/class to help create the allData data structure.
+%
+% Input Arguments
+%  cfile - Required - Filename to write allData too
+%   string value
+%  allData - Required - Cell array where each cell corrosponds with a period. Should contain
+%       all information/data to write out data, error values, components, and
+%       locations for all datatypes - See above and see readZ_3D/readApres_3D
+%   cell array
+%  header - Optional - Comment to put at the top of the file/data header
+%   string value
+%  units - Optional - Units to put at the top of the datatype header. If not present will
+%    grab the units from allData{i}.units
+%   string value
+%  isign - Optional - Sign Convention to use for header either -1 or 1
+%   integer values
+%  convert_to_apres - Optional - If present
+%   boolean value
+%
+% Output Arguments
+%  status - Result of fclose after writing all datatypes and files
+%
+% See also readZ_3D, readApres_3D, mtdata, ImpUnits
+%
 %  (c) Anna Kelbert, 2011
 
 % if no txType, assume old data file format that does not specify it
@@ -73,8 +97,12 @@ for j = 1:nTx
                 info.err(i,j,:) = allData{j}.Zerr(k,:);
             end
             if sum(isnan(info.err(i,j,:)))>0 % fill in NaN errors 
-                %info.err(i,j,:) = allData{j}.nanvalue;
-                info.err(i,j,:) = NaN;
+                if isfield(allData{j}, 'nanvalue') || isprop(allData{j}, 'nanvalue')
+                    info.err(i,j,:) = allData{j}.nanvalue;
+                else
+                    warning("Filling NaN value with MatLab's NaN value")
+                    info.err(i,j,:) = NaN;
+                end
             end
             info.per(j) = allData{j}.T;
         end
@@ -86,7 +114,9 @@ fid = fopen(cfile,'w');
 
 %  description <= 80 char in length
 if nargin < 3
-    header = 'Synthetic 3D MT data written in Matlab';
+    header = '3D MT data written in Matlab by writeZ_3D';
+elseif isempty(header)
+    header = '3D MT data written in Matlab by writeZ_3D';
 end
 
 %  assume SI units by default as in ModEM; alternative is [mV/km]/[nT] 
@@ -126,6 +156,14 @@ end
 
 % compute apparent resistivity and phase for writing, if required
 if convert_to_apres
+    if ~isscalar(dataTypes)
+        error_msg = sprintf("Cannot use 'convert_to_apres' with multiple datatypes in 'allData" + newline ...
+            + "You can use the `onedata` argument with readZ_3D/readApres_3D when reading to" + newline ...
+            + " obtain an allData structure with one datatype.");
+        error(error_msg)
+    end
+
+    fprintf(1, "Converting '%s' into 'Off_Diagonal_Rho_Phase'", dataTypes{1})
     [apres, phase, dataType] = convert_impedance_to_apres(dataTypes, info);
 end
 
@@ -151,13 +189,21 @@ for nTypes = 1 : length(dataTypes)
     end
 
     % Comment line ignore by code, but describes each data in the item block
-    if strcmp(dataTypes(nTypes), 'Off_Diagonal_Rho_Phase') || strcmp(dataTypes(nTypes), 'Phase_Tensor')
+    if strcmp(dataTypes(nTypes), 'Off_Diagonal_Rho_Phase') ...
+            || strcmp(dataTypes(nTypes), 'Phase_Tensor') ...
+            || convert_to_apres
         comment = 'Period(s) Code GG_Lat GG_Lon X(m) Y(m) Z(m) Component Real Error';
     else
         comment = 'Period(s) Code GG_Lat GG_Lon X(m) Y(m) Z(m) Component Real Imag Error';
     end
 
-    writeHeader(fid, header, comment, dataTypes(nTypes), signstr, units, orientation, origin, nTx, nSites)
+    if convert_to_apres
+        dataType='Off_Diagonal_Rho_Phase';
+    else
+        dataType=dataTypes(nTypes);
+    end
+
+    writeHeader(fid, header, comment, dataType, signstr, units, orientation, origin, nTx, nSites)
 
     %  now write all impedances (or apparent resistivities!) line by line
     if convert_to_apres 
@@ -182,7 +228,6 @@ for nTypes = 1 : length(dataTypes)
             end
         end
     end
-
 end
 
 status = fclose(fid);
@@ -197,22 +242,6 @@ function [] = writeHeader(fid, header, comment, datatype, signstr, units, orient
     fprintf(fid,'> %.2f\n', orientation);
     fprintf(fid,'> %.3f %.3f\n', origin(1:2));
     fprintf(fid,'> %d %d\n', nTx, nSites);
-end
-
-function [] = writeZ(fid, nSites, nTx, info)
-    for k = 1 : nSites
-        for j = 1 : nTx
-            for i = nComps
-                if ~isnan(info.data(nSite, tx, comp))
-                    fprintf(fid,'%12.6E ',info.per(j)); % transmitter
-                    fprintf(fid,'%s %8.3f %8.3f ',info.code{k},info.lat(k),info.lon(k)); % receiver
-                    fprintf(fid,'%12.3f %12.3f %12.3f ',info.loc(k,:)); % receiver x,y,z
-                    fprintf(fid,'%s %15.6E %15.6E %15.6E\n',info.comp(i,:),real(info.data(k,j,i)),imag(info.data(k,j,i)),info.err(k,j,i)); % data
-                end
-            end
-        end
-
-    end
 end
 
 % Convert Impedeance datatypes to apparent resistivity and phase
@@ -232,12 +261,10 @@ function [apres, phase, dataType] = convert_impedance_to_apres(dataType, info)
     apres.yx = abs(info.data(:,:,iyx)).^2;
     apres.yx_se = info.err(:,:,iyx).^2; % variance of Z as in EDI file
 
-    %phase.xy = rad_deg*atan((imag(info.data(:,:,ixy)))./real(info.data(:,:,ixy)));
     % for now, using atan2 which takes values (-pi,pi] as in ModEM
     phase.xy = rad_deg*atan2(imag(info.data(:,:,ixy)),real(info.data(:,:,ixy)));
     phase.xy_se = rad_deg*sqrt(apres.xy_se./apres.xy);
 
-    %phase.yx = rad_deg*atan((imag(info.data(:,:,iyx)))./real(info.data(:,:,iyx)));
     % for now, using atan2 which takes values (-pi,pi] as in ModEM
     phase.yx = rad_deg*atan2(imag(info.data(:,:,iyx)),real(info.data(:,:,iyx))) + 180.;
     phase.yx_se = rad_deg*sqrt(apres.yx_se./apres.yx);

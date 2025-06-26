@@ -1,20 +1,55 @@
-function [allData,header,units,isign,origin,info] = readZ_3D(cfile,newunits,onetype,nanvalue,newformat)
-%  Usage:  [allData,header,units,isign,origin,info] = readZ_3D(cfile,newunits,onetype,nanvalue,newformat);
-%   read contents of cell array allData from file
-%   cfile.  There is one cell per period; each
-%   cell contains all information necessary to define
-%   data (locations, values, error standard dev) for
-%   each period (transmitter)
-%   Site locations units have to match the model, i.e. use meters.
-%   If onetype is specified, only read that data type and skip others.
-%   If nanvalue is specified, use this value, if found in place of the data 
-%      entry or standard deviation, to skip a line (not typical).
-%      The comparison isn't exact but works.
-%   If newformat is specified, then read with the azimuth angles.
+function [allData, header, units, isign, origin, info] = readZ_3D(cfile, newunits, onetype, nanvalue, newformat)
+% readZ_3D - Read all data blocks of a ModEM 'list'format
+%  Usage: [allData, header, units, isign, origin, info] = readZ_3D(cfile, newunits, onetype, nanvalue, newformat)
+%
+%  Read contents of a ModEM 'list' datafile into the cell array allData
+% from cfile. Each cell represents one period and contains all information
+% necessary to define data (loctions, values, error standard dev, components,
+% dataType names) for a transmitter.
+%
+% Site locations units have to match the model, i.e. use meters.
+%
+% Input Arguments
+%  cfile - Required - Filename to read from
+%   string value
+%  newunits - Optional - Units to convert data too either: '[mV/km]/[nT]', '[V/m]/[T]', '[V/m]/[A/m]', 'Ohm', or ''.
+%       Unit conversion is performed by ImpUnits
+%   string value
+%  onetype - Optional - If present, only read that data type and skip others
+%   string value
+%  nanvalue - Optional - If present, use this to value in place of missing data or error values
+%   float value or NaN
+%  newformat - Optional - If present, read data with azimuth angles
+%   boolean value
+%
+% Output Arguments
+%   allData - Cell array, one cell per period, containing all data for all data types that were
+%           in that had data for that period
+%    cell array
+%   header - The comment for the file (very first line)
+%    string value
+%   units - Units that the data has been converted too, or if 'newunits' was not present, the
+%       units associated with the file
+%    string value
+%   isign - The sign of the data either -1 or 1
+%    integer value
+%   origin - [X,Y] values of data origin
+%    double array
+%   info - Cell array, one cell per data type containing all data of data type including
+%     data, err, units, and site location (lat, lon, xyz location)
+%    cell array
+%
+% See also readApres_3D, writeZ_3D, ImpUnits, mtdata
 %  (c) Anna Kelbert, 2011-2013, 2020, 2023
 
+if ~isfile(cfile)
+    error("File '%s' could not be found.", cfile);
+end
 
-fid = fopen(cfile,'r');
+[fid, err_msg] = fopen(cfile,'r');
+if fid == -1
+    error("Error reading file '%s': %s", cfile, err_msg)
+end
 
 if nargin < 2
     newunits = '';
@@ -53,16 +88,7 @@ while 1
     end
     dataType = sscanf(l,'> %s');
     seenDataTypes = [seenDataTypes, dataType];
-    %tmp = textscan(fid,'# %s',1,'delimiter','\n');
-    %tmp = char(tmp{1});
-    %if isempty(tmp); break; end
-    %header = tmp;
-    %% read the block header
-    %tmp = textscan(fid,'# %s',1,'delimiter','\n');
-    %% IMPORTANT: NEW LINE IN THE DATA FILE DEFINES THE TRANSMITTER TYPE
-    %% (if missing, just skips over it - can still read old files)
-    %tmp = textscan(fid,'+ %s',1,'delimiter','\n');
-    % END IMPORTANT: NEW LINE IN THE DATA FILE
+
     blockinfo = textscan(fid,'> %s',5,'delimiter','\n');
     blockinfo = char(blockinfo{1});
     signstr  = blockinfo(1,:);
@@ -84,10 +110,6 @@ while 1
             continue
         case 'Full_Impedance'
             nDataTypes = nDataTypes + 1;
-
-            if ~isempty(onetype) && ~strcmp(onetype,strtrim(dataType))
-                % just keep reading... won't use
-            end
             origin = neworigin; % prevents problem when origins differ
             if ~isempty(newunits)
                 SI_factor = ImpUnits(typeUnits,newunits);
@@ -154,10 +176,6 @@ while 1
             info{nDataTypes}.ncomp = 8;
             info{nDataTypes}.comp = comp;
         case 'Off_Diagonal_Impedance'
-            if ~isempty(onetype) && ~strcmp(onetype,strtrim(dataType))
-                % just keep reading... won't use
-            end
-
             nDataTypes = nDataTypes + 1;
 
             if isnan(origin)
@@ -210,12 +228,7 @@ while 1
             info{nDataTypes}.per = periods;
             info{nDataTypes}.ncomp = 4;
             info{nDataTypes}.comp = comp;
-            %info{nDataTypes}.ncomp = 8;
-            %info{nDataTypes}.comp = ['ZXX';'ZXY';'ZYX';'ZYY'];
         case 'Off_Diagonal_Rho_Phase'
-            if ~isempty(onetype) && ~strcmp(onetype,strtrim(dataType))
-                % just keep reading... won't use
-            end
             warning("Will convert 'Off_Diagonal_Rho_Phase' into Full_Impedance. Use 'readApres_3D' to read 'Off_Diagonal_Rho_Phase' without conversion")
             nDataTypes = nDataTypes + 1;
             if isnan(origin)
@@ -291,10 +304,6 @@ while 1
             info{nDataTypes}.ncomp = 8;
             info{nDataTypes}.comp = ['ZXX';'ZXY';'ZYX';'ZYY'];
         case 'Full_Vertical_Components'
-            if ~isempty(onetype) && ~strcmp(onetype,strtrim(dataType))
-                % just keep reading... won't use
-            end
-
             nDataTypes = nDataTypes + 1;
 
             if isnan(origin)
@@ -364,6 +373,9 @@ while 1
     end   
 end
 status = fclose(fid);
+if status == -1
+    warning("Error calling fclose of for file '%s'", cfile)
+end
 
 % If requested, only return one datatype
 if ~isempty(onetype)
@@ -383,8 +395,8 @@ if ~isempty(onetype)
     end
 end
 
-% if two data types are present, merge the periods
-if length(info) == 1
+% If more than two data types are present, merge the periods
+if isscalar(info)
     per = info{1}.per;
     ind1 = 1:length(per);
 else
@@ -396,7 +408,6 @@ else
     [tmp,ind2] = intersect(per,info{2}.per);
 end
 
-
 % compute the maximum total number of components
 ncomp = 0;
 for i = 1:length(info)
@@ -404,8 +415,8 @@ for i = 1:length(info)
 end
 
 if length(info) == 2
-    % If we see full vert before full imp, swap them so that all data has them in
-    % the order described below
+    % If we see full vertical components before full impedance, swap them so
+    % that all data has them in the order described below
     if strcmp(info{1}.type, 'Full_Vertical_Components') && strcmp(info{2}.type, 'Full_Impedance')
         tmp_full_vert = info{1};
         info{1} = info{2};
@@ -414,7 +425,7 @@ if length(info) == 2
 end
 
 
-% for compatibility, convert to the (old) allData structure - most programs
+% For compatibility, convert to the (old) allData structure - most programs
 % expect full impedances and vertical components (in this order) 
 for j = 1:length(per)
     for k = 1:length(info)
@@ -441,7 +452,6 @@ for j = 1:length(per)
     allData{j}.signConvention = isign;
     allData{j}.nComp = ncomp;
     allData{j}.nanvalue = nanvalue;
-    %allData{j}.compChar(1:ncomp) = '';
     allData{j}.siteLoc = allsitesloc;
     for isite = 1:size(allsites,1) % quick fix as of 20190301. Clean up later
         allData{j}.siteChar{isite} = allsites(isite,:);
