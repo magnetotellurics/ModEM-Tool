@@ -79,6 +79,9 @@ while 1
     nSites = tmp(2);
     % now read the data line by line
     switch strtrim(dataType)
+        case 'Phase_Tensor'
+            warning("Skipping read of datatype '%s'. Use 'readApres_3D(cfile, newunits, onetype)' for 'Phase_Tensor' datatypes", dataType);
+            continue
         case 'Full_Impedance'
             nDataTypes = nDataTypes + 1;
 
@@ -356,8 +359,8 @@ while 1
             info{nDataTypes}.ncomp = 4;
             info{nDataTypes}.comp = comp;
         otherwise
-            disp('Unknown data type');
-            break;
+            warning("This datatype (%s) is unkown to 'readZ_3D. Skipping", dataType)
+            continue;
     end   
 end
 status = fclose(fid);
@@ -399,6 +402,17 @@ ncomp = 0;
 for i = 1:length(info)
     ncomp = ncomp + info{i}.ncomp/2;
 end
+
+if length(info) == 2
+    % If we see full vert before full imp, swap them so that all data has them in
+    % the order described below
+    if strcmp(info{1}.type, 'Full_Vertical_Components') && strcmp(info{2}.type, 'Full_Impedance')
+        tmp_full_vert = info{1};
+        info{1} = info{2};
+        info{2} = tmp_full_vert;
+    end
+end
+
 
 % for compatibility, convert to the (old) allData structure - most programs
 % expect full impedances and vertical components (in this order) 
