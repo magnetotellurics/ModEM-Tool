@@ -25,6 +25,19 @@ def calculate_grid_size_bytes(nx : int, ny : int, nz : int) -> Tuple[int, int]:
     total_bytes = total_elms * REAL_SIZE
     return float(total_elms), float(total_bytes)
 
+def calculate_nedges(nx : int, ny : int, nz : int, nair : int) -> Tuple[int, int, int, int]:
+    nz_total = nz + nair
+
+    print(nx, ny, nz, nz_total, nair)
+
+    x_edges = nx * (ny+1) * (nz_total+1)
+    y_edges = (nx+1) * ny * (nz_total+1)
+    z_edges = (nx+1) * (ny+1) * nz_total
+
+    total_edges = x_edges + y_edges + z_edges
+
+    return x_edges, y_edges, z_edges, total_edges
+
 description = '''Estimite the size of a ModEM Run'''
 
 parser = argparse.ArgumentParser(description=description)
@@ -32,12 +45,16 @@ parser.add_argument('nPeriods', help="Number of periods", type=int)
 parser.add_argument('nx', help='Number of cells in x direction', type=int)
 parser.add_argument('ny', help='Number of cells in y direction', type=int)
 parser.add_argument('nz', help='Number of cells in z direction', type=int)
+parser.add_argument('-a', '--nAir_layers', help='Number of air layers (default 12)', 
+                    type=int, 
+                    default=12)
 args = parser.parse_args()
 
 nPeriods = args.nPeriods
 nx = args.nx
 ny = args.ny
 nz = args.nz
+nAirLayers = args.nAir_layers
 nTx = nPeriods 
 
 em_elms, em_bytes = calculate_esoln_bytes(nPeriods, nx, ny, nz)
@@ -45,7 +62,6 @@ em_elms, em_bytes = calculate_esoln_bytes(nPeriods, nx, ny, nz)
 print(f"# EM Solution Memory ")
 print(f"Total Elms: {em_elms:,}")
 print(f"Total Size: {em_bytes:,} bytes - {em_bytes / BYTES_TO_MB:,} mb - {em_bytes / BYTES_TO_GB:,} gb")
-
 
 rho_elms, rho_bytes = calculate_grid_size_bytes(nx, ny, nz)
 print(rho_elms, rho_bytes)
@@ -56,3 +72,7 @@ print(f"Total Size: {rho_bytes} bytes - {(rho_bytes / BYTES_TO_MB)} mb - {(rho_b
 total_bytes = float(rho_bytes + em_bytes)
 print(f"\n# Total Memory")
 print(f"Total Bytes: {total_bytes:,} bytes - {total_bytes / BYTES_TO_MB:,} mb - {total_bytes / BYTES_TO_GB:,} gb ")
+
+
+x_edges, y_edges, z_edges, nEdges = calculate_nedges(nx, ny, nz, nAirLayers )
+print(f"Edges (x,y,z): ({x_edges}, {y_edges}, {z_edges}) Total: {nEdges})")
