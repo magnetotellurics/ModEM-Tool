@@ -1,5 +1,5 @@
-Read/Write ModEM Data MatLab Example
-====================================
+Read/Write ModEM Data Using readZ_3D and writeZ_3D
+===================================================
 
 This example will walk you through reading and writing ModEM 'list'/ASCII
 datafiles using the ModEM MatLab tools.
