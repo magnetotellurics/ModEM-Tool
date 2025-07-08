@@ -1,5 +1,5 @@
-Creating Synthetic Examples
-===========================
+Using MatLab classes to create a synthetic example
+==================================================
 
 The MatLab tools associated with the `ModEM-Tools` examples contains classes
 which can easily allow us to create both synthetic 
@@ -23,6 +23,11 @@ your MatLab path. You can do this easily by adding the
 [ModEM-Tools/matlab/](../matlab/) and all of it's subfolders (Right Click -> Add
 To Path -> Selected Folders and Subfolders). This will give you access to all 
 classed used in this example, and the classes and functions they use themselves.
+
+If you would like to see just the code for this example, 
+[you can find it in this driver script][driver].
+
+[driver]: create_synth_model_and_data_driver.m
 
 ## Finding Additional Documentation 
 
