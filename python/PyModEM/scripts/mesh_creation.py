@@ -2,8 +2,19 @@ import sys
 from dataclasses import dataclass
 import math
 import numpy as np
+from python.PyModEM.PyModEM.ModEMGrid import ModEMGrid, ModEMGridData
 
-from ModEMGrid import ModEMGrid, ModEMGridData
+'''
+This is a script I (Miles) used to create synthetic meshes/models. It's a simple
+and should provide a good example of how to use PyModEM to create synthetic models.
+
+These synthetic models are good for testing ModEM.
+
+However, the models created in this sciprt are too simple and other methods
+should be used to create more complex/advanced models. 
+
+'''
+
 
 def create_idealized_rhos(grid: np.ndarray) -> np.ndarray:
     rhos = grid._data.rhos
@@ -113,6 +124,7 @@ def create_mesh_dims(inner_size_e: float,
         grid_ew = east_west_dims,
         grid_ns = north_south_dims,
         grid_z = z,
+        resistivity_type='LOGE',
         rhos = rhos,
         origin = [center_east, center_north],
         orientation= 0.0

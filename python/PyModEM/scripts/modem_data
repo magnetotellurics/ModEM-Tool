@@ -37,9 +37,25 @@ def check_if_periods_are_present(periods):
         raise ValueError("No periods passed, specify periods by '-p p1, p2, .. pn'")
 
 
-description = '''A few tools to manipulate a ModEM Data file (just list or remove periods)'''
+description = '''A few tools to manipulate a ModEM Data files (just list or remove periods)
 
-parser = argparse.ArgumentParser(description=description)
+This tool can list out all the periods found in a data file:
+
+    $ modem_data d_05.dat list
+
+You can then use this script to remove periods:
+
+    $ modem_data d_05.dat remove -p 1.0, 1.5
+
+Lastly, you can remove all periods except ones specified:
+
+    $ modem_data d_05.dat remove_all_but -p 1.0, 1.5 # Well keep only 1.0, and 1.5 periods
+
+'''
+
+parser = argparse.ArgumentParser(prog='modem_data',
+                                 description=description,
+                                 formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('data_file', help='Filepath to the data file', type=str)
 parser.add_argument('task', help="list, remove, remove_all_but", type=str)
 parser.add_argument('-p', '--periods', help='List of periods to remove, seperated by common', type=float, nargs='+')
