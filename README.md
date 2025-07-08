@@ -15,6 +15,15 @@ However, we have done work to ensure that some basic functionality is working.
 This functionality can be found in the [MatLab Examples](#matlab-examples)
 section of this README.
 
+## Related Repositories
+
+* [ModEM-Model][ModEM-Model] - The ModEM Model itself
+* [ModEM-Examples][ModEM-Examples] - A collection of MT and CSEM examples for ModEM
+
+[ModEM-Model]: https://github.com/MiCurry/ModEM-Model
+[ModEM-Examples]: https://github.com/MiCurry/ModEM-Examples
+
+
 ## MatLab Code
 
 > **NOTE:** Some MatLab code requires the MatLab [Mapping Toolbox][Mapping ToolBox].
