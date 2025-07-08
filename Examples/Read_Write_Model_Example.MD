@@ -15,8 +15,8 @@ convert resistivity to conductivity.
 For this example, we will use the Cascadia example that is found in the
 [ModEM-Examples][ModEM-Examples] repository. 
 
-[readCond_3D]: ./ioAscii/readCond_3D.m
-[writeCond_3D]: ./ioAscii/writeCond_3D.m
+[readCond_3D]: ../matlab/ioAscii/readCond_3D.m
+[writeCond_3D]: ../matlab/ioAscii/writeCond_3D.m
 [ModEM-Examples]: https://github.com/MiCurry/ModEM-Examples
 
 ## Reading Conductivity Data

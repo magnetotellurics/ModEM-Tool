@@ -16,7 +16,7 @@ to plotting, despite the name suggests.
 
 Before we begin, you'll need the [MatLab's Mapping Toolbox][Mapping ToolBox] in
 order to run the code snippets found in the 
-[Creating Data](#obtaining-the-software) section.
+[Creating Data](#creating-data) section.
 
 Likewise, you will need to ensure a number of helper functions and objects in
 your MatLab path. You can do this easily by adding the
@@ -24,7 +24,7 @@ your MatLab path. You can do this easily by adding the
 To Path -> Selected Folders and Subfolders). This will give you access to all 
 classed used in this example, and the classes and functions they use themselves.
 
-## Getting Help
+## Finding Additional Documentation 
 
 This example is only a limited view of the classes available in the
 ModEM-Tools/matlab directory. If you want to do things apart from this you
@@ -52,6 +52,12 @@ of our grid.
 We can then use [xymodel][xymodel] or [llmodel][llmodel] to add conductivity
 data to our model, write our model, read our model back in and create plots of
 our model.
+
+[xygrid]: ../matlab/matlab/modelParam/xygrid.m
+[llgrid]: ../matlab/matlab/modelParam/llgrid.m
+
+[xymodel]: ../matlab/matlab/modelParam/xymodel.m
+[llmodel]: ../matlab/matlab/modelParam/llmodel.m
 
 ## Creating a Model
 
@@ -125,7 +131,7 @@ model:
 ```
 
 <figure>
-    <img src="uiplot_example.png" width=400 height=400,
+    <img src="img/uiplot_example.png" width=400 height=400,
          alt='A screenshot of the UiPlot utility'>
     <figcaption>A screen shot of the UIPlot utility. We can view different layers of the model by selecting
         either x, y or z and then choosing the later with the +/- keys or the drop-down.</figcaption>
