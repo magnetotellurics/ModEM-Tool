@@ -148,7 +148,7 @@ ans =
 `info{2}` contains information for Full_Vertical_Components. But as you can see
 info structure contains all information for the associated data type.
 
-[readZ_3D]: matlab/ioAscii/readZ_3D.m
+[readZ_3D]: ../matlab/ioAscii/readZ_3D.m
 
 ## Reading Phase data types using readApres_3D
 
@@ -170,7 +170,7 @@ above. i.e. a cell array with one cell per period.
 
 Likewise, `info` is a cell array that with one cell per data type read inside the file.
 
-[readApres_3D]: matlab/ioAscii/readZ_3D.m
+[readApres_3D]: ../matlab/ioAscii/readApres_3D.m
 
 ## Reading data files that contain both impedance and apparent resistivity data types
 
@@ -202,4 +202,4 @@ by specifying the filename in `cfile`:
 writeZ_3D will write out both Full_Impedance and Full_Vertical found in
 `cascad_errfl3.dat`.
 
-[writeZ_3D]: matlab/ioAscii/writeZ_3D.m
+[writeZ_3D]: ../matlab/ioAscii/writeZ_3D.m
