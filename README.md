@@ -1,7 +1,5 @@
 # ModEM-Tools
 
-<!--- Adding a comment - testing some GitHub things -->
-
 The ModEM-Tools repository contains a collection of MatLab and Python tools for
 manipulating ModEM data and model files.
 
