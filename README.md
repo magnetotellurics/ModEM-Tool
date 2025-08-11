@@ -20,8 +20,8 @@ section of this README.
 * [ModEM-Model][ModEM-Model] - The ModEM Model itself
 * [ModEM-Examples][ModEM-Examples] - A collection of MT and CSEM examples for ModEM
 
-[ModEM-Model]: https://github.com/MiCurry/ModEM-Model
-[ModEM-Examples]: https://github.com/MiCurry/ModEM-Examples
+[ModEM-Model]: https://github.com/magnetotellurics/ModEM
+[ModEM-Examples]: https://github.com/magnetotellurics/ModEM-Examples
 
 
 ## MatLab Code

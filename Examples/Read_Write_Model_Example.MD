@@ -17,7 +17,7 @@ For this example, we will use the Cascadia example that is found in the
 
 [readCond_3D]: ../matlab/ioAscii/readCond_3D.m
 [writeCond_3D]: ../matlab/ioAscii/writeCond_3D.m
-[ModEM-Examples]: https://github.com/MiCurry/ModEM-Examples
+[ModEM-Examples]: https://github.com/magnetotellurics/ModEM-Examples
 
 ## Reading Conductivity Data
 
@@ -84,7 +84,7 @@ The origin is important as that it represents the origin of the relationship to
 the data file. For more information, see the 
 [ModEM Users Guide][modem-users-guide] section 4.2.
 
-[modem-users-guide]: https://github.com/MiCurry/ModEM-Model/blob/main/doc/userguide/ModEM_UserGuide.pdf
+[modem-users-guide]: https://github.com/magnetotellurics/ModEM/blob/main/doc/userguide/ModEM_UserGuide.pdf
 
 ## Writing Conductivity Data
 

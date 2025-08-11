@@ -7,7 +7,7 @@ datafiles using the ModEM MatLab tools.
 For this example, we will read and write a few different data types. This
 example will use examples found in the [ModEM-Examples][ModEM-Examples].
 
-[ModEM-Examples]: https://github.com/MiCurry/ModEM-Examples
+[ModEM-Examples]: https://github.com/magnetotellurics/ModEM-Examples
 
 All of the functions listed in this example contain usage documentation, which
 you can see at the top of the file, or by typing `help function` in MatLab.
