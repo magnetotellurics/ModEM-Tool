@@ -10,14 +10,14 @@ PyModEM can be installed using `pip`. It's often easier to use a Python virtual
 enviorment for installations:
 
 ```bash
-$ git clone https://github.com/MiCurry/ModEM-Tools.git
+$ git clone https://github.com/magnetotellurics/ModEM-Tools
 $ cd ModEM-Tools/python/PyModEM
 $ python -m venv pymodem-venv
 $ source pymodem-venv/bin/activate # For Unix/Mac
 $ ./pymodem-venv/bin/activate # For Windows
 ```
 
-Then, install the requirments and PyModEM:
+Then, install the requirements and PyModEM:
 
 ```bash
 $ pip install -r requirments.txt
@@ -28,7 +28,7 @@ $ pip install -e .
 
 # Usage
 
-Activate your virtual enviorment, (if you created it above):
+Activate your virtual environment, (if you created it above):
 
 ```bash
 $ source ./pymodem-venv/bin/activate
