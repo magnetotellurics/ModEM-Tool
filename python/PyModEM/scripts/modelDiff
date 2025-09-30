@@ -1,0 +1,32 @@
+#!/Users/mcurry/venv/modem/bin/python
+
+import argparse
+
+from PyModEM import ModEMGrid
+
+description = '''Take the difference between file_A and file_B into file_C'''
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('file_A', help="Model file A", type=str)
+parser.add_argument('file_B', help="Model file B", type=str)
+parser.add_argument('-o', '--output',
+                    default='diff.rho',
+                    help='output_file_name', 
+                    type=str, 
+                    nargs=1)
+
+args = parser.parse_args()
+
+file_A = args.file_A
+file_B = args.file_B
+output_fname = args.output
+
+
+model_A = ModEMGrid.ModEMGrid(fname=file_A)
+model_B = ModEMGrid.ModEMGrid(fname=file_B)
+
+diff = model_A - model_B
+
+diff.write_grid(output_fname)
+
+

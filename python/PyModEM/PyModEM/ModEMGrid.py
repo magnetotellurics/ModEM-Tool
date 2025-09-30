@@ -89,6 +89,11 @@ class ModEMGrid:
     def __deepcopy__(self, memo):
         return ModEMGrid(data=copy.deepcopy(self._data, memo))
 
+    def __sub__(self, other):
+        diff = copy.deepcopy(self)
+        diff.rhos = self.rhos - other.rhos
+        return diff
+
     @property
     def origin(self) -> Tuple[float]:
         return self._data.origin
@@ -311,7 +316,7 @@ class ModEMGrid:
         return rhos
 
     def read_origin(self, file):
-        return np.array(self.origin).astype(float)
+        return np.array(file.readline().strip().split()).astype(float)
 
     def read_orientation(self, file):
         return float(file.readline().strip().split()[0])
