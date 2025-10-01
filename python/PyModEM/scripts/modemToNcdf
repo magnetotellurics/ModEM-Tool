@@ -1,0 +1,21 @@
+#!/Users/mcurry/venv/modem/bin/python
+
+import argparse
+
+from PyModEM import ModEMGrid
+
+description = '''Convert ModEM file to NetCDF'''
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('fname', help="Model file to convert", type=str)
+parser.add_argument('-o', '--output',
+                    default='diff.rho',
+                    help='output_file_name', 
+                    type=str, 
+                    nargs='?')
+
+args = parser.parse_args()
+
+grid = ModEMGrid.ModEMGrid(fname=args.fname)
+grid.write_netcdf(filename=args.output)
+

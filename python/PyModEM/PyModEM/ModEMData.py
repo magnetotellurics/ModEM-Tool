@@ -8,6 +8,9 @@ from dataclasses import dataclass
 
 NUM_HEADER_LINES = 8
 
+
+FOO = 0
+
 DATA_TYPE_COMPONENT_MAP = {'Full_Impedance' : ['ZXX', 'ZXY', 'ZYX', 'ZYY'],
                          'Off_Diagonal_Impedance' : ['ZXY', 'ZYX'],
                          'Full_Vertical_Components' : ['TX ', 'TY '],
@@ -17,6 +20,22 @@ DATA_TYPE_COMPONENT_MAP = {'Full_Impedance' : ['ZXX', 'ZXY', 'ZYX', 'ZYY'],
                          'TE_Impedance' : ['TE'],
                          'TM_Impedance' : ['TM']
                          }
+
+def component_to_datatype(component) -> str:
+    for datatype, dt_comps in DATA_TYPE_COMPONENT_MAP.items():
+        for comp in dt_comps:
+            if component == comp.strip():
+                return datatype
+
+    raise ValueError(f"Unknown component {component}")
+
+def components_to_data_types(components) -> List[str]:
+    datatypes = []
+
+    for component in components:
+        datatypes.append(component_to_datatype(component))
+
+    return datatypes
 
 DATA_TYPES_2D = ['TE_Impedance', 'TM_Impedance']
 DATA_TYPES_3D = [ 'Full_Impedance',
@@ -133,7 +152,11 @@ class Station:
         out : bool
             True if station has data for the period, else false.
         '''
-        return period in self.data.periods
+        for p in self.data.periods:
+            if period == p.period:
+                return True
+
+        return False
 
     def get_component(self, period : float, component : str):
         ''' get_component(period, component) - Get the component for a speicific
@@ -201,18 +224,24 @@ class Station:
             List of components to write out. 
         '''
         for period in self.data.periods:
+
             #TODO: Update this so that instead of components passed in we use the datatype map above
-            if period.data.component in components:
-                file.write("{0:.7e} {1:3} {2:.4f} {3:.3f} {4:.3f} {5:.3f} {6:.3f} ".format(
-                    period.data.period,
-                    self.data.station_code,
-                    self.data.location_latlon[0],
-                    self.data.location_latlon[1],
-                    self.data.location_xyz[0],
-                    self.data.location_xyz[1],
-                    self.data.location_xyz[2]))
-                period.write_data(file)
-                file.write("\n")
+            for idx, comp in enumerate(period.data.component):
+                if comp == 'TX' or comp == 'TY':
+                    comp = comp + ' '
+
+                if comp in components:
+                     #print('comp', period.data.period, self.data.station_code, comp)
+                    file.write("{0:.7e} {1:3} {2:.4f} {3:.3f} {4:.3f} {5:.3f} {6:.3f} ".format(
+                        period.data.period,
+                        self.data.station_code,
+                        self.data.location_latlon[0],
+                        self.data.location_latlon[1],
+                        self.data.location_xyz[0],
+                        self.data.location_xyz[1],
+                        self.data.location_xyz[2]))
+                    period.write_data(file, idx)
+                    file.write("\n")
 
 
 @dataclass
@@ -224,10 +253,10 @@ class PeriodData:
     '''
     period : float
     stations : list[Station]
-    component : str
-    real : float
-    imag : float
-    error : float
+    component : list[str]
+    real : list[float]
+    imag : list[float]
+    error : list[float]
 
 class Period:
     def __init__(self, period : float = None, data : PeriodData = None):
@@ -248,14 +277,14 @@ class Period:
         elif period is not None:
             self.data = PeriodData(period=period,
                                    component=[],
-                                   real=None,
-                                   imag=None,
-                                   error=None,
-                                   stations=None)
+                                   real=[],
+                                   imag=[],
+                                   error=[],
+                                   stations=[])
 
         
     def __str__(self):
-        return str(f"Period:{self.data.period}-{self.data.component}")
+        return str(f"<Period:{self.data.period}-{self.data.component}>")
 
     def __repr__(self):
         return str(f"<Period:{self.data.period}-{self.data.component}>")
@@ -267,6 +296,10 @@ class Period:
     @property
     def component(self):
         return self.data.component
+
+    @property
+    def ncomponents(self) -> int:
+        return len(self.data.component)
     
     @property
     def real(self):
@@ -308,7 +341,7 @@ class Period:
         ''' remove_station(station_code) - Remove the station associated with station_code from this period '''
         return self.data.stations.remove(station_code)
 
-    def write_data(self, file: TextIO):
+    def write_data(self, file: TextIO, idx):
         ''' write_data(file) - Write out the data associated with this period 
 
         This method should be used by the ModEMData class and the Station class
@@ -324,12 +357,31 @@ class Period:
         
         '''
         #TODO: Upadte this function to write non-complex impedances, other MT datatypes and CSEM datatypes
-        file.write(f"{self.data.component} {self.data.real:.7e} {self.data.imag:.7e} {self.data.error:.7e}") 
+        file.write(f"{self.data.component[idx]} {self.data.real[idx]:.7e} {self.data.imag[idx]:.7e} {self.data.error[idx]:.7e}") 
+
+    # Convert periods to entries
+    def to_entries(self, station):
+        entries = []
+        for nComps in range(0, self.ncomponents):
+            entry = DataEntry(
+                        station_code = station.code,
+                        location_latlon = station.data.location_latlon,
+                        location_xyz = station.data.location_xyz,
+                        period = self.period,
+                        component = self.component[nComps],
+                        real = self.real[nComps],
+                        imag = self.imag[nComps],
+                        error = self.error[nComps]
+                    )
+
+            entries.append(entry)
+
+        return entries
 
 
 
 class ModEMData():
-    def __init__(self, filename : str = None):
+    def __init__(self, filename : str = None, stations: List[Station] = None):
         ''' ModEMData(filename) - Class to read or create a ModEM datafile 
 
         This class can be used to either read in and manipulate an exisiting ModEM data file, or
@@ -354,6 +406,8 @@ class ModEMData():
 
         if self._filename:
             self.load(self._filename)
+        elif stations:
+            self._stations = stations
 
     def construct_data_filename(self, comment : str):
         ''' ModEMData.construct_data_filename(comment)
@@ -475,11 +529,11 @@ class ModEMData():
         return len(self._data_types)
 
     def add_new_data_type(self, data_type):
-        self._data_types += data_type.strip('> ')
+        self._data_types.append(data_type.strip('> '))
 
     @property
-    def component(self):
-        return self._component
+    def components(self):
+        return self._components
 
     @property
     def ncomponents(self):
@@ -550,7 +604,7 @@ class ModEMData():
                 n_expected_data =  header.nstations * header.nperiods * len(expected_components)
 
                 # Now, parse the data for the header we read above
-                self._parse_data(data_file, n_expected_data)
+                self._parse_data(data_file)
                 self._parsing -= 1
 
 
@@ -586,6 +640,10 @@ class ModEMData():
             imag = float(line[9])
             error = float(line[10])
 
+
+            print(line)
+            print(error, line[10])
+
             entry = DataEntry(
                         station_code=station_station_code,
                         period=period,
@@ -618,16 +676,34 @@ class ModEMData():
         else: # Get the existing station
             station = self._stations[station_code]
 
-        period = Period(period=period)
-        period.data.component = entry.component
-        period.data.real = entry.real
-        period.data.imag = entry.imag
-        period.data.error = entry.error
-        station.add_period(entry, period)
+        # If this is a new period, create it, or grab the exisiting one
+        if period in  self._periods:
+           period = self._periods[period]
 
+           if entry.component not in period.data.component: 
+               period.data.component.append(entry.component)
+               period.data.real.append(entry.real)
+               period.data.imag.append(entry.imag)
+               period.data.error.append(entry.error)
+        else:
+            period = Period(period=period)
+            period.data.component.append(entry.component)
+            period.data.real.append(entry.real)
+            period.data.imag.append(entry.imag)
+            period.data.error.append(entry.error)
+            self._periods[period.data.period] = period
+
+        if not station.has_period(period.period):
+            #print(f"Adding period {period.period} to station {station.code} - {period}")
+            station.add_period(period)
+
+        self.add_datatype(component_to_datatype(entry.component))
         self._stations[station.data.station_code] = station
-        self._periods[period.data.period] = period
 
+
+    def add_datatype(self, datatype):
+        if datatype not in self._data_types:
+            self._data_types.append(datatype)
 
     def _write_modem_data_header(self, header: ModEMDataHeader, file):
         ''' _write_modem_data_header(header, file) - Given a ModEMDataHeader object, write out a ModEM header 
@@ -643,6 +719,28 @@ class ModEMData():
         file.write(f"> {header.origin[0]} {header.origin[1]}\n")
         file.write(f"> {self.nperiods} {self.nstations}\n")
 
+    def construct_headers(self):
+        for datatype in self._data_types:
+            header = ModEMDataHeader(
+                        header = "",
+                        description = "",
+                        data_type = datatype,
+                        sign_conversion = DEFAULT_SIGN_CONVENTION,
+                        units = DEFAULT_UNITS,
+                        orientation = self.orientation,
+                        origin = self.origin,
+                        nperiods = self.nperiods,
+                        nstations = self.nstations
+                    )
+
+            print(datatype)
+
+
+
+
+    def write(self, filename: str, comment=None):
+        self.write_data(filename, comment=comment)
+
     def write_data(self, filename: str, comment=None):
         ''' write_data(filename, comment) - Write out this object in ModEM Data format 
 
@@ -657,7 +755,6 @@ class ModEMData():
             Comment to add at the top of the Datafile 
         '''
         with open(filename, 'w') as data_file:
-
             for header in self.headers:
                 if comment is None:
                     header.header = "# ModEM Data written by PyModEm.ModEMData"

@@ -1,0 +1,26 @@
+#!/Users/mcurry/venv/modem/bin/python
+
+
+import numpy as np
+import argparse
+
+from PyModEM import ModEMDataPandas
+
+description = '''Take the difference between file_A and file_B into file_C'''
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('file_A', help="Data file A", type=str)
+parser.add_argument('file_B', help="Data file B", type=str)
+parser.add_argument('output_fname', help="Output filename", type=str)
+
+args = parser.parse_args()
+
+file_A = args.file_A
+file_B = args.file_B
+output_fname = args.output_fname
+
+data_a = ModEMDataPandas.ModEMDataPandas(file_A)
+data_b = ModEMDataPandas.ModEMDataPandas(file_B)
+diff = data_a - data_b
+
+diff.write(file_C)

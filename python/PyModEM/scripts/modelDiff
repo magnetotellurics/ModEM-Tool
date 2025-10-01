@@ -13,13 +13,13 @@ parser.add_argument('-o', '--output',
                     default='diff.rho',
                     help='output_file_name', 
                     type=str, 
-                    nargs=1)
+                    nargs='?')
 
 args = parser.parse_args()
 
 file_A = args.file_A
 file_B = args.file_B
-output_fname = args.output
+output_fname = args.output[0]
 
 
 model_A = ModEMGrid.ModEMGrid(fname=file_A)

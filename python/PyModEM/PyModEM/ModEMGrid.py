@@ -9,6 +9,8 @@ import numpy as np
 
 from PyModEM.ModEMCovariance import ModEMCovariance
 
+from netCDF4 import Dataset
+
 def mult_by_one(value, base):
     return value * 1
 
@@ -376,6 +378,42 @@ class ModEMGrid:
             self._write_origin(file, self.origin)
             self._write_orientation(file, self.orientation)
 
+    def write_netcdf(self, filename, comment="Data written by PyModEM"):
+        ncdf = Dataset(filename, 'w', format='NETCDF4')
+
+        # Dimensions
+        nx = ncdf.createDimension('nx', self.nx)
+        ny = ncdf.createDimension('ny', self.ny)
+        nz = ncdf.createDimension('nz', self.nz)
+        nResCodes = ncdf.createDimension('nResCodes', 0)
+
+        # Attributes
+        ncdf.header = comment
+        ncdf.resistivity_type = self.resistivity_type
+        ncdf.origin = self.origin
+        ncdf.orientation = self.orientation
+
+        # Varibles
+        dx = ncdf.createVariable('dx', 'f8', ('nx',))
+        dx.units = 'm'
+        dy = ncdf.createVariable('dy', 'f8', ('ny',))
+        dy.units = 'm'
+        dz = ncdf.createVariable('dz', 'f8', ('nz',))
+        dz.units = 'm'
+
+        rhos = ncdf.createVariable('rho', 'f8', ('ny', 'nx', 'nz',))
+        rhos.units = 'ohm * meter'
+
+        # Write things
+        dx[:] = self.grid_ew
+        dy[:] = self.grid_ns
+        dz[:] = self.grid_z
+
+        print(rhos.shape, self.rhos.shape)
+        rhos[:] = self.rhos
+
+
+        ncdf.close()
 
     def _write_header_line(self, file, comment="# Data writen by PyModEM"):
         file.write(comment + '\n') 
