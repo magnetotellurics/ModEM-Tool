@@ -3,7 +3,7 @@
 The ModEM-Tools repository contains a collection of MATLAB and Python tools for
 manipulating ModEM data and model files.
 
-All of the MatLab tools have been created and developed by Dr. Anna Kelbert.
+**All of the MatLab scripts and classes in this repository have been created and developed by Dr. Anna Kelbert.**
 
 This repository has the following folders:
 
