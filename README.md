@@ -90,6 +90,14 @@ Some of these classes are used
 * [mtperiod][mtperiod] - Class for manipulating and defining a period, including station data.
 * [mttf][mttf] - Read in either Z, XML, EDI or BIRRP files
 
+[xygrid]: /matlab-tools/modelParam/xygrid.m
+[llgrid]: /matlab-tools//modelParam/llgrid.m
+[xymodel]: /matlab-tools/modelParam/xymodel.m
+[llmodel]: /matlab-tools/modelParam/llmodel.m
+[mtdata]: /matlab-tools/dataTools/mtdata.m
+[mtperiod]: /matlab-tools/dataTools/mtperiod.m
+[mttf]: /matlab-tools/dataTools/mttf.m
+
 If you want to use these classes to read in an existing file, make sure you check out their
 static methods. For instance:
 
