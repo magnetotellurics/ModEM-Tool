@@ -1,18 +1,42 @@
 # ModEM-Tools
 
-The ModEM-Tools repository contains a collection of MatLab and Python tools for
+The ModEM-Tools repository contains a collection of MATLAB and Python tools for
 manipulating ModEM data and model files.
 
-The MatLab code is an extensive collection of functions and classes that have
-been used for many years, while the Python code is a newer, less functional 
-code base.
+All of the MatLab tools have been created and developed by Dr. Anna Kelbert.
+
+This repository has the following folders:
+
+**matlab-tools**
+
+Still under development, these `matlab-tools` directory contains classes for
+handling and manipulating electromagnetic data, reading magnetotelluric (MT)
+transfer functions (reading SPUD bundles) and classes for geospatial
+transformations of model parameterizations. 
+
+**modem-io**
+
+A collection of MATLAB and Python code for reading, writing and plotting ModEM
+data types. The MATLAB code has been more widely used and is more recommended
+then the Python code.
+
+**scripts** 
+
+Contains scripts that are not longer used, but may act as examples.
+
+**utilities**
+
+The utilities folder contains miscellaneous MATLAB classes such as a GUI for
+viewing 2D and 3D model files, tools for processing EDI files and others.
+
+## Note on these scripts/tools
 
 Some of these tools **may** be incomplete, contain errors or bugs, or may
 not work at all. We are providing these tools as a starting point or reference
 for derivative or future work.
 
 However, we have done work to ensure that some basic functionality is working.
-This functionality can be found in the [MatLab Examples](#matlab-examples)
+This functionality can be found in the [MATLAB Examples](#matlab-examples)
 section of this README.
 
 ## Related Repositories
@@ -24,20 +48,20 @@ section of this README.
 [ModEM-Examples]: https://github.com/magnetotellurics/ModEM-Examples
 
 
-## MatLab Code
+## MATLAB Code
 
-> **NOTE:** Some MatLab code requires the MatLab [Mapping Toolbox][Mapping ToolBox].
+> **NOTE:** Some MATLAB code requires the MATLAB [Mapping Toolbox][Mapping ToolBox].
 
-The collection of MatLab code in this repository contain a number of functions
-and classes that have been used for many years and have a plethora of
-functionality. It is the best resource for tools for manipulating ModEM data,
-model files or performing other actions.
+The collection of MATLAB code in this repository contain a number of functions
+and classes that have been used for many years by Anna Kelbert and have a
+plethora of functionality. It is the best resource for tools for manipulating
+ModEM data, model files or performing other actions.
 
 [Mapping ToolBox]: https://www.mathworks.com/products/mapping.html
 
-### MatLab Examples
+### MATLAB Examples
 
-We have provided a few examples using MatLab code which should help anyone
+We have provided a few examples using MATLAB code which should help anyone
 getting started with ModEM datatypes or model files. 
 
 * [Read/Write ModEM Data Using readZ_3D and writeZ_3D][rw_data_example] - A
@@ -45,17 +69,17 @@ basic example using the low-level `readZ_3D` and `writeZ_3D` functions to read
 and write  a data file
 * [Read/Write ModEM Model Example][rw_model_example] - A basic example using the
 low-level to read and write a model file
-* [Using MatLab classes to create a synthetic example][matlab_classes_example] - An example
-that uses the higher level matlab classes to create synthetic data and a synthetic model as well
-as an example using the classes to plot a model.
+* [Using MATLAB classes to create a synthetic example][matlab_classes_example] - An example
+that uses the higher level MATLAB classes to create synthetic data and a
+synthetic model as well as an example using the classes to plot a model.
 
-[rw_data_example]: /Examples/Read_Write_Data_Example.MD
-[rw_model_example]: /Examples/Read_Write_Model_Example.MD
-[matlab_classes_example]: /Examples/Creating_Synthetic_Model_and_Data.md
+[rw_data_example]: /modem-io/Examples/Read_Write_Data_Example.MD
+[rw_model_example]: /modem-io/Examples/Read_Write_Model_Example.MD
+[matlab_classes_example]: /modem-io/Examples/Creating_Synthetic_Model_and_Data.md
 
-### MatLab Classes
+### modem-io MATLAB classes
 
-The MatLab classes provide the greatest functionality and are very flexible.
+The MATLAB classes provide the greatest functionality and are very flexible.
 They will most likely be the best option to meet your needs. 
 
 Some of these classes are used 
@@ -74,18 +98,10 @@ static methods. For instance:
 >>> model = xymodel.read('example.rho');
 ```
 
-[xygrid]: /matlab/matlab/modelParam/xygrid.m
-[llgrid]: /matlab/matlab/modelParam/llgrid.m
-[xymodel]: /matlab/matlab/modelParam/xymodel.m
-[llmodel]: /matlab/matlab/modelParam/llmodel.m
-[mtdata]: /matlab/matlab/dataTools/mtdata.m
-[mtperiod]: /matlab/matlab/dataTools/mtperiod.m
-[mttf]: /matlab/matlab/dataTools/mttf.m
-
 ## Python Code (PyModEM)
 
 The Python Code is a newer tool with significantly less functionality then the
-MatLab code. The MatLab code should be used in favor of it, but we are providing
+MATLAB code. The MATLAB code should be used in favor of it, but we are providing
 it here as reference and as a starting point for future tools.
 
 Currently it has some basic functionality that allow for the creation of
@@ -98,4 +114,4 @@ resource and we recommend using it as well.
 For more information on the PyModEM please see it's [README][pymod-readme].
 
 [MtPy]: https://github.com/MTgeophysics/mtpy-v2
-[pymod-readme]: /python/PyModEM/README.md
+[pymod-readme]: /modem-io/PyModEM/README.md
