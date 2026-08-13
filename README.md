@@ -17,7 +17,7 @@ transformations of model parameterizations.
 **modem-io**
 
 A collection of MATLAB and Python code for reading, writing and plotting ModEM
-data types. The MATLAB code has been more widely used and is more recommended
+data and model files. The MATLAB code has been more widely used and is more recommended
 then the Python code.
 
 **scripts** 
