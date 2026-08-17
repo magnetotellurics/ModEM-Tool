@@ -88,7 +88,11 @@ classdef mtdatacompare < mtdata
                     end
                     k=find(contains(obj1.d{j}.siteChar,strtrim(allsites{i})));
                     if ~isempty(k) && in
-                        info.code(i,:) = allsites{i};
+                        if length(k)>1
+                            %j,k
+                            disp(['Please remove duplicate site ',obj1.d{j}.siteChar{k(1)},' before running regroup'])
+                        end
+                        info.code{i} = allsites{i};
                         info.loc(i,:) = allsitesloc(i,:);
                         info.lon(i) = lon(i);
                         info.lat(i) = lat(i);
@@ -99,6 +103,10 @@ classdef mtdatacompare < mtdata
                     if j2>0
                         k=find(contains(obj2.d{j2}.siteChar,strtrim(allsites{i})));
                         if ~isempty(k) && in
+                            if length(k)>1
+                                %j2,k
+                                disp(['Please remove duplicate site ',obj1.d{j2}.siteChar{k(1)},' before running regroup'])
+                            end
                             info.resp(i,j,:) = obj2.d{j2}.TF(k,:);
                         end
                     end
@@ -179,7 +187,7 @@ classdef mtdatacompare < mtdata
             end
             
             for i=1:length(obj.v.lon)
-                siteName = char(obj.v.code(i,:));
+                siteName = char(obj.v.code{i});
                 if nargin > 1
                     f = apresplt(obj,siteName,fileName);
                     close(f);
@@ -446,7 +454,7 @@ classdef mtdatacompare < mtdata
             for i = 1:nsites
                 count = ncomp*nper - sum(sum(isnan(info.res(i,:,:))));
                 if count > 0
-                    site.codes(j,:) = info.code(i,:);
+                    site.codes(j,:) = info.code{i};
                     site.lon(j) = info.lon(i);
                     site.lat(j) = info.lat(i);
                     site.rms(j) = sqrt(nansum(nansum(info.res(i,:,:)))/count);
@@ -527,8 +535,11 @@ classdef mtdatacompare < mtdata
                     for i = 1:nsites
                         newcount = ncomp - sum(isnan(resxy(i,j))) - sum(isnan(resyx(i,j)));
                         count = count + newcount;
-                        if newcount > 0
-                            misfit = misfit + nansum(resxy(i,j)) + nansum(resyx(i,j));
+                        if ~isnan(resxy(i,j))
+                            misfit = misfit + resxy(i,j);
+                        end
+                        if ~isnan(resyx(i,j))
+                            misfit = misfit + resyx(i,j);
                         end
                     end
                 end
@@ -555,7 +566,7 @@ classdef mtdatacompare < mtdata
             for i = 1:nsites
                 count = ncomp*nper - sum(isnan(resxy(i,:))) - sum(isnan(resyx(i,:)));
                 if count > 0
-                    site.codes(j,:) = info.code(i,:);
+                    site.codes(j,:) = info.code{i};
                     site.lon(j) = info.lon(i);
                     site.lat(j) = info.lat(i);
                     site.rms(j) = sqrt(nansum(resxy(i,:))+nansum(resyx(i,:))/count);
@@ -572,7 +583,7 @@ classdef mtdatacompare < mtdata
             InterpPlot(site.lon,site.lat,site.rms,'RMS',htitle);
             colormap(invhot);
             if nargin >= 2
-                caxis([1 maxrms]);
+                clim([0 maxrms]);
             end            
             subplot(7,1,6:7);
             h = zeros(1,2);
@@ -627,8 +638,11 @@ classdef mtdatacompare < mtdata
                     for i = 1:nsites
                         newcount = ncomp - sum(isnan(resxy(i,j))) - sum(isnan(resyx(i,j)));
                         count = count + newcount;
-                        if newcount > 0
-                            misfit = misfit + nansum(resxy(i,j)) + nansum(resyx(i,j));
+                        if ~isnan(resxy(i,j))
+                            misfit = misfit + resxy(i,j);
+                        end
+                        if ~isnan(resyx(i,j))
+                            misfit = misfit + resyx(i,j);
                         end
                     end
                 end
@@ -655,7 +669,7 @@ classdef mtdatacompare < mtdata
             for i = 1:nsites
                 count = ncomp*nper - sum(isnan(resxy(i,:))) - sum(isnan(resyx(i,:)));
                 if count > 0
-                    site.codes(j,:) = info.code(i,:);
+                    site.codes(j,:) = info.code{i};
                     site.lon(j) = info.lon(i);
                     site.lat(j) = info.lat(i);
                     site.rms(j) = sqrt(nansum(resxy(i,:))+nansum(resyx(i,:))/count);
@@ -672,7 +686,7 @@ classdef mtdatacompare < mtdata
             InterpPlot(site.lon,site.lat,site.rms,'RMS',htitle);
             colormap(invhot);
             if nargin >= 2
-                caxis([1 maxrms]);
+                clim([0 maxrms]);
             end            
             subplot(7,1,6:7);
             h = zeros(1,2);
@@ -832,7 +846,7 @@ classdef mtdatacompare < mtdata
             [rms, info] = misfit(obj);
             nper = length(info.per);
             nsites = length(info.code);
-            ncomp = length(info.comp);
+            ncomp = size(info.comp,1);
             
             icomp = 0;
             if nargin > 2
@@ -876,7 +890,7 @@ classdef mtdatacompare < mtdata
                 for i = 1:nsites
                     count = nper - sum(isnan(info.res(i,:,icomp)));
                     if count > 0
-                        site.codes(j,:) = info.code(i,:);
+                        site.codes(j,:) = info.code{i};
                         site.lon(j) = info.lon(i);
                         site.lat(j) = info.lat(i);
                         site.resp(j,:) = info.resp(i,:,icomp);
@@ -889,7 +903,7 @@ classdef mtdatacompare < mtdata
                 for i = 1:nsites
                     count = ncomp*nper - sum(sum(isnan(info.res(i,:,:))));
                     if count > 0
-                        site.codes(j,:) = info.code(i,:);
+                        site.codes(j,:) = info.code{i};
                         site.lon(j) = info.lon(i);
                         site.lat(j) = info.lat(i);
                         site.rms(j) = sqrt(nansum(nansum(info.res(i,:,:)))/count);

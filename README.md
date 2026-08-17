@@ -1,33 +1,42 @@
 # ModEM-Tools
 
 The ModEM-Tools repository contains a collection of MATLAB and Python tools for
-manipulating ModEM data and model files.
-
-**All of the MatLab scripts and classes in this repository have been created and developed by Dr. Anna Kelbert.**
+manipulating ModEM data and model files. The most mature tools are available
+in the **matlab-tools** directory and are written in MATLAB Object-oriented style.
+The **matlab-io** directory contains the old MATLAB functions and scripts needed
+to easily manipulate ModEM input and output files; rudimentary plotting is also
+included. These scripts are not intended to be robust have had many years of use.
 
 This repository has the following folders:
 
 **matlab-tools**
 
-Still under development, these `matlab-tools` directory contains classes for
-handling and manipulating electromagnetic data, reading magnetotelluric (MT)
-transfer functions (reading SPUD bundles) and classes for geospatial
-transformations of model parameterizations. 
+The `matlab-tools` directory (authored by Anna Kelbert) contains classes for
+handling and manipulating electromagnetic data, including for reading magnetotelluric (MT)
+transfer functions (reading SPUD bundles) and converting these to ModEM data file inputs;
+classes for geospatial transformations of model parameterizations; classes to manipulate
+ModEM electric field outputs. This is a powerful collection of tools developed over many
+years for personal use. Contributions are welcome, but no warranty of any kind is implied. 
 
 **modem-io**
 
 A collection of MATLAB and Python code for reading, writing and plotting ModEM
 data and model files. The MATLAB code has been more widely used and is more recommended
-then the Python code.
+then the Python code. Authors: Gary Egbert and Anna Kelbert.
 
 **scripts** 
 
-Contains scripts that are not longer used, but may act as examples.
+Contains scripts developed for various temporary purposes by Anna Kelbert; provided
+here as examples in the hope that they may prove useful for anyone. Script contributions
+are welcome.
 
 **utilities**
 
 The utilities folder contains miscellaneous MATLAB classes such as a GUI for
 viewing 2D and 3D model files, tools for processing EDI files and others.
+These were developed by various members of Gary Egbert's group at Oregon State University
+during their time as students or postdoctoral associates with us. No warranty of any kind
+is implied.
 
 ## Note on these scripts/tools
 
@@ -41,10 +50,10 @@ section of this README.
 
 ## Related Repositories
 
-* [ModEM-Model][ModEM-Model] - The ModEM Model itself
+* [ModEM][ModEM-Software] - The Fortran-based ModEM Electromagnetic Modeling and Inversion Software
 * [ModEM-Examples][ModEM-Examples] - A collection of MT and CSEM examples for ModEM
 
-[ModEM-Model]: https://github.com/magnetotellurics/ModEM
+[ModEM-Software]: https://github.com/magnetotellurics/ModEM
 [ModEM-Examples]: https://github.com/magnetotellurics/ModEM-Examples
 
 
@@ -54,8 +63,7 @@ section of this README.
 
 The collection of MATLAB code in this repository contain a number of functions
 and classes that have been used for many years by Anna Kelbert and have a
-plethora of functionality. It is the best resource for tools for manipulating
-ModEM data, model files or performing other actions.
+plethora of functionality. Use to manipulate MT data and models to complement ModEM I/O.
 
 [Mapping ToolBox]: https://www.mathworks.com/products/mapping.html
 
@@ -77,7 +85,7 @@ synthetic model as well as an example using the classes to plot a model.
 [rw_model_example]: /modem-io/Examples/Read_Write_Model_Example.MD
 [matlab_classes_example]: /modem-io/Examples/Creating_Synthetic_Model_and_Data.md
 
-### modem-io MATLAB classes
+### matlab-tools MATLAB classes
 
 The MATLAB classes provide the greatest functionality and are very flexible.
 They will most likely be the best option to meet your needs. 

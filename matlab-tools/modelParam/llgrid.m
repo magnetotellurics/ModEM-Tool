@@ -989,6 +989,37 @@ classdef llgrid < latlontools
             
         end
         
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Write grid to file. For now only coded for the old style *.grd
+        % ASCII files that I used for the global modeling
+        function [] = write(obj,fname,format)
+            %
+            % Usage: write(obj,fname,format,lims)
+            %
+            % format options: grd (others to be implemented)
+            
+            if nargin < 3
+                format = 'grd';
+            end
+            switch lower(format)
+                case 'grd'
+                    f = fopen(fname,'w');
+                    fprintf(f,'%d %d %d %d %d\n',obj.nlon,obj.nlat,obj.nzAir,obj.nzCrust,obj.nzEarth);
+                    fprintf(f,'\n');
+                    fprintf(f,'%f ',obj.dlon);
+                    fprintf(f,'\n');
+                    fprintf(f,'\n');
+                    fprintf(f,'%f ',flip(90-obj.lat));
+                    fprintf(f,'\n');
+                    fprintf(f,'\n');                    
+                    fprintf(f,'%f ',6371.-obj.z);
+                    fprintf(f,'\n');   
+                    fclose(f);
+                otherwise
+                    error(['Can''t write to grid format ' format ': method unknown']);
+            end
+
+        end
       
     end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

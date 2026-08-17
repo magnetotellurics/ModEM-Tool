@@ -544,7 +544,7 @@ classdef xymodel < modelplot
             end
 
             delta = 1e-6;
-            clims = [min(min(X))-delta max(max(X))+delta];
+            clims = [nanmin(nanmin(X))-delta nanmax(nanmax(X))+delta];
             cmap = 'jet';
             nointerp = 0;
             showmesh = 0;

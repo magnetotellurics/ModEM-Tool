@@ -203,7 +203,7 @@ classdef mtperiod < latlontools
         function obj = merge(obj1,obj2)
             % obj = merge(obj1,obj2)
             %
-            % Merges the sites and data arrays Z and Zerr
+            % Merges the sites and data arrays TF and TFerr
             %
             % Currently does not locate and remove potential duplicates!
             
@@ -212,7 +212,7 @@ classdef mtperiod < latlontools
             end
 
             if ~strcmp(obj1.type,obj2.type)
-                warning('Merging two mtperiod objects whose data types that are not consistent');
+                warning('Merging two mtperiod objects whose data types are not consistent');
             end
 
             if ~strcmp(obj1.units,obj2.units)
@@ -227,8 +227,8 @@ classdef mtperiod < latlontools
                 warning('Merging two mtperiod objects whose origins are not consistent!!!');
             end
             
-            names1 = obj1.siteChar;
-            names2 = obj2.siteChar;
+            names1 = char(obj1.siteChar);
+            names2 = char(obj2.siteChar);
             nchar = max(length(names1(1,:)),length(names2(1,:)));
             nchar1 = length(names1(1,:));
             nchar2 = length(names2(1,:));
@@ -242,9 +242,10 @@ classdef mtperiod < latlontools
             obj.lon = [obj1.lon; obj2.lon];
             obj.siteChar(1:nsites1,1:nchar1) = char(names1);
             obj.siteChar(nsites1+1:nsites,1:nchar2) = char(names2);
+            obj.siteChar = cellstr(obj.siteChar);
             obj.siteLoc = [obj1.siteLoc; obj2.siteLoc];
-            obj.TF = [obj1.Z; obj2.Z];
-            obj.TFerr = [obj1.Zerr; obj2.Zerr];
+            obj.TF = [obj1.TF; obj2.TF];
+            obj.TFerr = [obj1.TFerr; obj2.TFerr];
 
         end
         
@@ -262,7 +263,19 @@ classdef mtperiod < latlontools
             % If grid is of xygrid type, mstruct is required
             % to compute the lats & lons; otherwise not required.
             % See setOrigin() for details.
+
+            if nargin < 3
+                landORsea = 'all';
+            end
             
+            if isa(grid,'llgrid') || (nargin < 4 && contains(landORsea,'all'))
+                skip_conversion = 1;
+            elseif isa(grid,'xygrid') && (nargin < 4)
+                error('Usage: dat = dat.gridCells(grid,''land'',mstruct)');
+            else
+                skip_conversion = 0;
+            end
+
             if isa(grid,'llgrid')
                 mygrid = grid;
                 if nargin < 4
@@ -271,21 +284,22 @@ classdef mtperiod < latlontools
                 end
                 mstruct.origin = [lat0,lon0,0];
             elseif isa(grid,'xygrid')
-                if nargin < 4
-                    error('Usage: dat = dat.gridCells(grid,''land'',mstruct)');
+                if ~skip_conversion
+                    lat0 = mstruct.origin(1);
+                    lon0 = mstruct.origin(2);
+                    mygrid = llgrid(grid,mstruct);
                 end
-                lat0 = mstruct.origin(1);
-                lon0 = mstruct.origin(2);
-                mygrid = llgrid(grid,lat0,lon0);
             else
                 % if this isn't a grid object, can't do much here
                 error('Please specify an xygrid or llgrid on which to define the MT data');
             end
- 
-            if nargin < 3
-                landORsea = 'all';
-            elseif contains(landORsea,'land') || contains(landORsea,'sea')
-                [melev,mlon,mlat] = m_etopo2([grid.limits.lonmin grid.limits.lonmax grid.limits.latmin grid.limits.latmax]);
+
+            if contains(landORsea,'land') || contains(landORsea,'sea')
+                minlat = mygrid.limits.latmin;
+                maxlat = mygrid.limits.latmax;
+                minlon = min(llgrid.lon180(mygrid.lon));
+                maxlon = max(llgrid.lon180(mygrid.lon));
+                [melev,mlon,mlat] = m_etopo2([minlon maxlon minlat maxlat]);
                 [LAT,LON] = meshgrid(mygrid.lat,mygrid.lon);
                 H = interp2(mlon,mlat,melev,LON,LAT);
                 if sum(sum(isnan(H))) == size(H,1)*size(H,2)
@@ -293,22 +307,27 @@ classdef mtperiod < latlontools
                 end
             end
             
-            % Count cells that matter, then initialize
-            nCells = 0;
-            for i = 1+mygrid.nPad:mygrid.nlat-mygrid.nPad
-                for j = 1+mygrid.nPad:mygrid.nlon-mygrid.nPad
-                    if contains(landORsea,'land')
-                        % skip seafloor sites
-                        if H(j,i)<0
-                            continue
+            if skip_conversion
+                % For the simple Cartesian grid, just count all cells
+                nCells = (grid.nx-2*grid.xpadding)*(grid.ny-2*grid.ypadding);
+            else
+                % Count cells that matter, then initialize
+                nCells = 0;
+                for i = 1+mygrid.nPad:mygrid.nlat-mygrid.nPad
+                    for j = 1+mygrid.nPad:mygrid.nlon-mygrid.nPad
+                        if contains(landORsea,'land')
+                            % skip seafloor sites
+                            if H(j,i)<0
+                                continue
+                            end
+                        elseif contains(landORsea,'sea')
+                            % skip land sites
+                            if H(j,i)>=0
+                                continue
+                            end
                         end
-                    elseif contains(landORsea,'sea')
-                        % skip land sites
-                        if H(j,i)>=0
-                            continue
-                        end
+                        nCells = nCells+1;
                     end
-                    nCells = nCells+1;
                 end
             end
             
@@ -330,8 +349,30 @@ classdef mtperiod < latlontools
                 obj.lat(1:obj.nSite) = 0;
                 obj.lon(1:obj.nSite) = 0;
             end
+
+            % If doing the simple thing, compute grid cell centers and exit
+            if isa(grid,'xygrid') && skip_conversion
+                k = 0;
+                for i = 1+grid.xpadding:grid.nx-grid.xpadding
+                    for j = 1+grid.ypadding:grid.ny-grid.ypadding
+                        k = k+1;
+                        sitename = [sprintf('%03d',i-grid.xpadding) '-' sprintf('%03d',j-grid.ypadding)];
+                        xctr = grid.xctr;
+                        yctr = grid.yctr;
+                        if strcmp(grid.units,'km')
+                            xctr = 1e3 * xctr;
+                            yctr = 1e3 * yctr;
+                        end
+                        obj.siteLoc(k,:) = [xctr(i) yctr(j) 0];
+                        obj.primaryCoords = 'xy';
+                        obj.siteChar{k} = char(sitename);
+                    end
+                end
+                obj.siteChar = obj.siteChar';
+                return
+            end
                
-            % Now define these sites at cell centers
+            % Otherwise, define these sites at cell centers
             k = 0;
             for i = 1+mygrid.nPad:mygrid.nlat-mygrid.nPad
                 for j = 1+mygrid.nPad:mygrid.nlon-mygrid.nPad
@@ -812,6 +853,8 @@ classdef mtperiod < latlontools
         function obj = setErrorFloor(obj,relErr,site)
             %  Usage : obj = setErrorFloor(obj,relErr,site);
             %
+            %  Set relative (or absolute) error according to standard MT
+            %  practices for each data type
             %  Based on the external function setErrorFloor3D. Remember, by
             %  design mtperiod objects only include one data type.
             

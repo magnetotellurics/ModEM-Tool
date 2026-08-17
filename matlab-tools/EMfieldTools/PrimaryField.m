@@ -1,30 +1,45 @@
-function [E1D,model1d] = PrimaryField(dataFile3d,modelFile3d,modelFile1d,sphHarm,falseGrid)
+function [E1D,model1d,m,grd] = PrimaryField(dataFile3d,modelFile3d,modelFile1d,sphHarm,falseGrid)
 % Function to 1) create an imitation of 2 MT modes, 2) run the 1D global
 % forward modeling in Matlab and 3) write it out as primary fields by
 % extracting the E-fields that are centered around (0,0) and putting them
 % on a spherical grid that is appropriate for the actual model location.
-% A. Kelbert, 27 Dec 2022; last mod. 10 Jul 2023 for general sources
-%    BUT this is still hard-coded for exactly two sources only
+% A. Kelbert, 27 Dec 2022; then 10 Jul 2023 modified for general sources
+%    BUT this is was still hard-coded for exactly two sources only
+%    AND it is currently hard-coded for the following air layers config:
+% Air layers mirror|fixed height|read from file : fixed height
+% Number of air layers and max height in km     : 12 1000.
+% A. Kelbert, 27 Jun 2026; modified for any number of modes
+%    AND fixed several subtle bugs (longitudinal shift; mid-lat shift)
 
 %% create the P10 spherical source with 2 modes - unless source provided
 if nargin < 4
     % scaled for a halfspace of 100 Ohmm at 1000 secs (old air layers)
-    scalingX = 200;
-    scalingY = 200;
-    temp = SHCreateVec(1);
-    P10 = SHSetValue(temp,1,1,0);
-    ModeX = SHRotateVec(P10,0,45,-45)*scalingX;
-    ModeY = -P10*scalingY;
-    shc(1,:) = ModeX(2:end);
-    shc(2,:) = ModeY(2:end);
+    %scalingX = 200;
+    %scalingY = 200;
+    %temp = SHCreateVec(1);
+    %P10 = SHSetValue(temp,1,1,0);
+    %ModeX = SHRotateVec(P10,0,45,-45)*scalingX;
+    %ModeY = -P10*scalingY;
+    %shc(1,:) = ModeX(2:end);
+    %shc(2,:) = ModeY(2:end);
     %figure; sp=SHPlotProj(ModeX,1);
-    
+
     % overwrite with the complex coeff that seem correct
+    shc(1,:) = [0.0000 + 0.0000i 0.0000 + 0.5000i 0.0000 - 0.5000i];
+    % actually, now that we fixed the longitude that was shifted by 180...
+    % ModeX = SHRotateVec(P10,0,45,135)*scalingX;
     shc(1,:) = [0.0000 + 0.0000i 0.0000 - 0.5000i 0.0000 + 0.5000i];
-    shc(2,:) = [-1 0 0];
+    shc(2,:) = [1 0 0];
+    % Finally, corrected to compensate for the missing 1i factor in TSModel
+    %shc(1,:) = [0.0000 + 0.0000i -0.5000 - 0.0000i 0.5000 + 0.0000i];
+    %shc(2,:) = [1 0 0];
+    MT = 1;
+    nMode = 2;
 
 else
     shc = sphHarm;
+    MT = 0;
+    nMode = size(shc,1);
     
 end
 
@@ -93,6 +108,23 @@ end
 layer1d = 1e3*model1d.grid.depth(1:end);
 cond1d = 10.^squeeze(squeeze(model1d.v(1,1,:)));
 
+%% save the 1D model as log rho for writing to *.prm model file
+layer = struct( ...
+    'degree', 0, ...
+    'depth', 0, ...
+    'iflog', {{'log'}}, ...   % note the extra {} so this is a 1x1 cell
+    'alpha', 0, ...
+    'beta', 1, ...
+    'gamma', 1, ...
+    'logrho', 0 );
+nlayers = length(cond1d);
+m = repmat(layer, nlayers, 1);
+for i=1:nlayers
+    m(i).depth = layer1d(i+1)/1000.; % lower boundary in km
+    m(i).logrho = log10(1/cond1d(i));
+end
+
+
 %%
 field = {'Es','Er'};
 origin = [model3d.grid.lat(1) model3d.grid.lon(1) 0];
@@ -126,6 +158,8 @@ trueloney = ctry;
 if falseGrid
     % FALSE lat/lon centered at lat=0 lon=0 (in [-180,180] range)
     falseorigin(1) = -sum(model3d.grid.dlat)/2;
+    % FALSE lat/lon centered at lat=lat0 lon=0 (in [-180,180] range)
+    %falseorigin(1) = mean(model3d.grid.lat)-sum(model3d.grid.dlat)/2;
     falseorigin(2) = -sum(model3d.grid.dlon)/2;
     falseorigin(3) = 0;
     gridshift = falseorigin - origin;
@@ -146,21 +180,23 @@ alt =-1*cumsum([0;grd.Dz(sz:ez)]);
 depth_earth = cumsum([0;grd.Dz(grd.Nza+1:end)]);
 alt_c = (alt(1:end-1)+alt(2:end))/2.0;
 
+% update model1d with the air layers (in km)
+model1d.grid.zAir = [alt_air/1e3; 0];
+model1d.grid.nzAir = length(alt_air);
+
+% set up the global grid
 nrAir = length(alt_air);
 nr = length(alt);
-nt = 90;
-lat1D = 0.5:1:180; % global co-latitude
-lon1D = 0.5:1:360; % global longitude
 sig = [cond1d;cond1d(end)];
 ds = [layer1d,sig];
 nPer = length(Period);
-nMode = 2;
 Es = cell(nPer,nMode);
 Er = cell(nPer,nMode);
 Hs = cell(nPer,nMode);
 Hr = cell(nPer,nMode);
 
 %% TS or layered 1D modeling for multiple periods, multiple modes
+nt = 90;
 for iPer = 1:nPer
     mm = TSModel(ds,0,Period(iPer),nt,'uniform',1e-4);
     for iMode = 1:nMode
@@ -170,10 +206,10 @@ for iPer = 1:nPer
         [~,Hr{iPer,iMode},Hs{iPer,iMode}]=mm.ShcInc(shc(iMode,:)*scaling,0,{'Hr','Hs'});
     end
 end
+save fields.mat Es Er Hs Hr mm;
 
-%% save E field from TS model
+%% save E field from TS model (load fields)
 % % % convert to regional ModEMM EM field file
-[Lon1D,Lat1D] = meshgrid(lon1D, lat1D);
 [Lonex,Latex] = meshgrid(lonex, latex);
 [Loney,Latey] = meshgrid(loney, latey); % latey(2:end-1)
 [Lonez,Latez] = meshgrid(lonex, latey); % latey(2:end-1)
@@ -184,65 +220,103 @@ end
 
 Ex= cell(nPer,nMode);Ey= cell(nPer,nMode);Ez = cell(nPer,nMode);
 
+% note - in the original version the fields were multiplied by 1i;
+% do not do this - this is incorrect. We only want to flip the signs
+% of E_\theta N-S -> E_x S-N and flip all theta indices for all arrays.
+% there was a bug where we didn't adjust the longitudes and that resulted
+% in a 180 degree longitudinal shift!!! - didn't matter for MT but
+% it will really matter for LWS project.
+% verified that we also need to convert E_r up -> E_z down 
+% for consistency with H_r up but E_r should be zero for 1D model
+delta = 90/nt;
+lat1D = 0.5:delta:180; % global co-latitude at mid-points as in TSModel 
+lon1D = 0:delta:359; % global longitude at nodes as in TSModel
+% reindexing for the 180 degree longitude conversion below
+j180 = find(lon1D>=180,1); 
+if isempty(j180)
+    jj = 1:length(lon1D); 
+else 
+    jj = [j180:length(lon1D) 1:j180]; 
+end
+% very important!!! - the order of index i (theta: co-latitude to latitude)
+% and the 180 degree longitude conversion are dealt with directly in the
+% field array computations below (flip operator and jj, respectively)
+% so these arrays should be actual longitudes and latitudes, in usual order
+[Lon1D,Lat1D] = meshgrid([lon1D 360]-180, lat1D-90);
+
 for iPer = 1:nPer
     
     nlayers = length(Es{1});
     for iMode = 1:nMode
         for ir= 1:nlayers
-            foox = -1i*flip(Es{iPer,iMode}(ir).ft,1);
-            fooy = 1i*flip(Es{iPer,iMode}(ir).fp,1);
-%             if iPer==1 && ir==nrAir+1
-%                 figure; pcolor(Lon1D'-180,90-Lat1D',squeeze(real(foox)')); colorbar
-%                 figure; pcolor(Lon1D'-180,90-Lat1D',squeeze(imag(foox)')); colorbar
-%                 figure; pcolor(Lon1D'-180,90-Lat1D',squeeze(real(fooy)')); colorbar
-%                 figure; pcolor(Lon1D'-180,90-Lat1D',squeeze(imag(fooy)')); colorbar
-%             end
+            % first flip the i (theta) index from co-lat to lat conventions
+            % and flip the sign of E_\theta to get Ex
+            foox = -flip(Es{iPer,iMode}(ir).ft,1);
+            fooy = flip(Es{iPer,iMode}(ir).fp,1);
+
+            % now append the array with a duplicate zero longitude
+            foox(:,end+1) = foox(:,1);
+            fooy(:,end+1) = fooy(:,1);
             
-            Ex{iPer,iMode}(:,:,ir) = interp2(Lon1D-180,90-Lat1D,foox,Lonex,Latex, 'spline');
-            Ey{iPer,iMode}(:,:,ir) = interp2(Lon1D-180,90-Lat1D,fooy,Loney,Latey, 'spline');
+            % now cut the two hemispheres at 180 longitude and reverse them
+            foox(:,:) = foox(:,jj);
+            fooy(:,:) = fooy(:,jj);
+
+            % now interpolate; subtle detail: lon1D correctly does not
+            % include the duplicate zero longitude but meshed Lon1D correctly includes it
+            Ex{iPer,iMode}(:,:,ir) = interp2(Lon1D,Lat1D,foox,Lonex,Latex, 'spline');
+            Ey{iPer,iMode}(:,:,ir) = interp2(Lon1D,Lat1D,fooy,Loney,Latey, 'spline');
+
+            % now plot for debugging
+            if iPer==1 && iMode==2 && ir==nrAir+1
+                figure; pcolor(Lon1D',Lat1D',squeeze(real(foox).')); shading interp; colorbar
+                figure; pcolor(Lon1D',Lat1D',squeeze(imag(foox).')); shading interp; colorbar
+                figure; pcolor(Lon1D',Lat1D',squeeze(real(fooy).')); shading interp; colorbar
+                figure; pcolor(Lon1D',Lat1D',squeeze(imag(fooy).')); shading interp; colorbar
+            end
         end
     end
+end
     
+for iPer = 1:nPer
+
     nlayers = length(Er{1});
     for iMode = 1:nMode
         for ir= 1:nlayers
-            fooz = -1i*flip(Er{iPer,iMode}(ir).fr,1);
-            Ez{iPer,iMode}(:,:,ir) = interp2(Lon1D-180,90-Lat1D,fooz,Lonez,Latez, 'spline');
+            fooz = -flip(Er{iPer,iMode}(ir).fr,1);
+            fooz(:,end+1) = fooz(:,1);
+            fooz(:,:) = foox(:,jj);
+            Ez{iPer,iMode}(:,:,ir) = interp2(Lon1D,Lat1D,fooz,Lonez,Latez, 'spline');
         end
     end
 end
 
-% conjugate all electric fields - some conventions somewhere don't match!
-% for iPer = 1:nPer
-%     for iMode = 1:nMode
-%         Ex{iPer,iMode}(:,:,:) = conj(Ex{iPer,iMode}(:,:,:));
-%         Ey{iPer,iMode}(:,:,:) = conj(Ey{iPer,iMode}(:,:,:));
-%         Ez{iPer,iMode}(:,:,:) = conj(Ez{iPer,iMode}(:,:,:));
-%     end
-% end
+
+%% compute magnetic fields at ground level
+Hx= cell(nPer,nMode);Hy= cell(nPer,nMode);Hz = cell(nPer,nMode);
 for iPer = 1:nPer
     for iMode = 1:nMode
-        Ex{iPer,iMode}(:,:,:) = 1i*(Ex{iPer,iMode}(:,:,:));
-        Ey{iPer,iMode}(:,:,:) = 1i*(Ey{iPer,iMode}(:,:,:));
-        Ez{iPer,iMode}(:,:,:) = 1i*(Ez{iPer,iMode}(:,:,:));
+        foohx = -1*flip(Hs{iPer,iMode}.ft,1);
+        foohy = flip(Hs{iPer,iMode}.fp,1);
+        foohz = -1*flip(Hr{iPer,iMode}.fr,1);
+        foohx(:,end+1) = foohx(:,1); % append with zero longitude
+        foohy(:,end+1) = foohy(:,1); 
+        foohz(:,end+1) = foohz(:,1); 
+        foohx(:,:) = foohx(:,jj); % swap hemispheres at 180 longitude
+        foohy(:,:) = foohy(:,jj);
+        foohz(:,:) = foohz(:,jj);
+        %if iPer==1 && iMode==1
+        %    figure; pcolor(Lon1D',Lat1D',squeeze(real(foohx).')); shading interp; colorbar
+        %    figure; pcolor(Lon1D',Lat1D',squeeze(imag(foohx).')); shading interp; colorbar
+        %    figure; pcolor(Lon1D',Lat1D',squeeze(real(foohy).')); shading interp; colorbar
+        %    figure; pcolor(Lon1D',Lat1D',squeeze(imag(foohy).')); shading interp; colorbar
+        %    figure; pcolor(Lon1D',Lat1D',squeeze(real(foohz).')); shading interp; colorbar
+        %    figure; pcolor(Lon1D',Lat1D',squeeze(imag(foohz).')); shading interp; colorbar
+        Hx{iPer,iMode}(:,:) = interp2(Lon1D,Lat1D,foohx,Lonhx,Lathx, 'spline');
+        Hy{iPer,iMode}(:,:) = interp2(Lon1D,Lat1D,foohy,Lonhy,Lathy, 'spline');
+        Hz{iPer,iMode}(:,:) = interp2(Lon1D,Lat1D,foohz,Lonhz,Lathz, 'spline');
     end
 end
-
-%save('NorthAmericaSynthetic_Global_E1D.mat','Ex','Ey','Ez');
-
-%% compute magnetic fields
-% Hx= cell(nPer,nMode);Hy= cell(nPer,nMode);Hz = cell(nPer,nMode);
-% for iPer = 1:nPer
-%     for iMode = 1:nMode
-%         foohx = -1*flip(Hs{iPer,iMode}.ft,1);
-%         foohy = flip(Hs{iPer,iMode}.fp,1);
-%         foohz = -1*flip(Hr{iPer,iMode}.fr,1);
-%         
-%         Hx{iPer,iMode}(:,:) = interp2(Lon1D,Lat1D,foohx,Lonhx,Lathx, 'spline');
-%         Hy{iPer,iMode}(:,:) = interp2(Lon1D,Lat1D,foohy,Lonhy,Lathy, 'spline');
-%         Hz{iPer,iMode}(:,:) = interp2(Lon1D,Lat1D,foohz,Lonhz,Lathz, 'spline');
-%     end
-% end
 
 %% write out E0 file (interpolate to the false grid but write true grid)
 E0 = TVector3D_SG(grd);
@@ -256,11 +330,34 @@ for iPer = 1:nPer
         SOLN0.E{iMode,iPer} = E0;
     end
 end
+% note that if we're computing at the equator, then rotating to the correct
+% latitude, we need to rotate r and theta components (Ex & Ez). Phi
+% components (Ey) stay the same. The whole electric field, at all locations,
+% needs to be rotated by the same angle, the center of new grid, to be correct.
+% note also that while these field components are defined on different
+% edges, if viewed as vectors at nodes, which they are, this is exactly the
+% correct rotation...
+% & we can do it all because we're computing for
+% a 1D model which is the same at all locations
+% ACTUALLY I'M NOT SURE THE GEOMETRY ALLOWS THIS SO SKIP FOR NOW
+% theta0 = center(1)*pi/180;
+% for iPer = 1:nPer
+%     for iMode = 1:nMode
+%         E0 = SOLN0.E{iMode,iPer};
+%         SOLN0.E{iMode,iPer}.z(:,:,:) = cos(theta0)*E0.z(:,:,:)-sin(theta0)*E0.x(:,:,:);
+%         SOLN0.E{iMode,iPer}.x(:,:,:) = sin(theta0)*E0.z(:,:,:)+cos(theta0)*E0.x(:,:,:);
+%     end
+% end
+% now save, plot and write out
 SOLN0.S.CondRead = 1;
 SOLN0.grid = E0.grid;
 SOLN0.grid.rotation = 0.0;
 SOLN0.grid.units = 'm';
-SOLN0.Modes = {'X','Y'}; % '1'
+if MT
+    SOLN0.Modes = {'X','Y'}; % '1'
+else
+    SOLN0.Modes = arrayfun(@(k) sprintf('%02d', k), 1:nMode, 'UniformOutput', false);
+end
 SOLN0.Periods = Period;
 plotEMsoln(SOLN0);
 

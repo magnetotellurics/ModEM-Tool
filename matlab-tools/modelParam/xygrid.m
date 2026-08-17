@@ -294,7 +294,7 @@ classdef xygrid < latlontools
             
             if contains(padding,'D')
                 padDown = obj.dz(end)*increaseFactor.^(1:nPad);
-                obj.dz = [obj.dz; padDown];
+                obj.dz = [obj.dz; padDown'];
             end
                         
         end

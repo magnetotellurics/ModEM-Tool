@@ -15,6 +15,7 @@ classdef netcdfiris < handle
     %   (c) Anna Kelbert, modified 28 Dec 2022 for more general input.
     %   (c) Anna Kelbert, modified 30 Jan 2023 to add model variables.
     %   (c) Anna Kelbert, modified  7 Nov 2023 to conform to EMC validator.
+    %   (c) Anna Kelbert, modified 13 Mar 2026 to conform to EMC updates.
     %   This allows direct for I/O of the model file with ModEM code.
     
     properties
@@ -97,6 +98,23 @@ classdef netcdfiris < handle
             ncglobal = netcdf.getConstant('NC_GLOBAL');
             
             header.title = netcdf.getAtt(ncid,ncglobal,'title');
+            try
+                header.year = netcdf.getAtt(ncid,ncglobal,'year');
+            catch exception
+                if strcmp(exception.identifier,'MATLAB:imagesci:netcdf:libraryFailure')
+                    header.year = 'UNKNOWN';
+                end
+            end                
+            try
+                header.model_type = netcdf.getAtt(ncid,ncglobal,'model_type');
+                header.model_subtype = netcdf.getAtt(ncid,ncglobal,'model_subtype');
+            catch exception
+                if strcmp(exception.identifier,'MATLAB:imagesci:netcdf:libraryFailure')
+                    disp('Reading old NetCDF file with no model type; assuming magnetotelluric');
+                    header.model_type = '3D Electrical Conductivity Model';
+                    header.model_subtype = 'Long-period Magnetotelluric';
+                end
+            end
             header.id = netcdf.getAtt(ncid,ncglobal,'id');
             try
                 header.model = netcdf.getAtt(ncid,ncglobal,'model');
@@ -221,16 +239,16 @@ classdef netcdfiris < handle
                 geospatial.exists = 0;
             end
             if geospatial.exists
-                geospatial.lat_min = netcdf.getAtt(ncid,ncglobal,'geospatial_lat_min');
-                geospatial.lat_max = netcdf.getAtt(ncid,ncglobal,'geospatial_lat_max');
+                geospatial.lat_min = compose("%.4f",netcdf.getAtt(ncid,ncglobal,'geospatial_lat_min'));
+                geospatial.lat_max = compose("%.4f",netcdf.getAtt(ncid,ncglobal,'geospatial_lat_max'));
                 geospatial.lat_units = netcdf.getAtt(ncid,ncglobal,'geospatial_lat_units');
                 geospatial.lat_resolution = netcdf.getAtt(ncid,ncglobal,'geospatial_lat_resolution');
-                geospatial.lon_min = netcdf.getAtt(ncid,ncglobal,'geospatial_lon_min');
-                geospatial.lon_max = netcdf.getAtt(ncid,ncglobal,'geospatial_lon_max');
+                geospatial.lon_min = compose("%.4f",netcdf.getAtt(ncid,ncglobal,'geospatial_lon_min'));
+                geospatial.lon_max = compose("%.4f",netcdf.getAtt(ncid,ncglobal,'geospatial_lon_max'));
                 geospatial.lon_units = netcdf.getAtt(ncid,ncglobal,'geospatial_lon_units');
                 geospatial.lon_resolution = netcdf.getAtt(ncid,ncglobal,'geospatial_lon_resolution');
-                geospatial.vertical_min = netcdf.getAtt(ncid,ncglobal,'geospatial_vertical_min');
-                geospatial.vertical_max = netcdf.getAtt(ncid,ncglobal,'geospatial_vertical_max');
+                geospatial.vertical_min = compose("%.4f",netcdf.getAtt(ncid,ncglobal,'geospatial_vertical_min'));
+                geospatial.vertical_max = compose("%.4f",netcdf.getAtt(ncid,ncglobal,'geospatial_vertical_max'));
                 geospatial.vertical_units = netcdf.getAtt(ncid,ncglobal,'geospatial_vertical_units');
                 geospatial.vertical_positive = netcdf.getAtt(ncid,ncglobal,'geospatial_vertical_positive');
             end
@@ -536,11 +554,22 @@ classdef netcdfiris < handle
             % Put file in define mode.
             netcdf.reDef(ncid);
             netcdf.putAtt(ncid,ncglobal,'title',header.title);
+            netcdf.putAtt(ncid,ncglobal,'year',header.year);
             netcdf.putAtt(ncid,ncglobal,'id',header.id);
             if isfield(header,'model')
                 netcdf.putAtt(ncid,ncglobal,'model',header.model);
             else
                 netcdf.putAtt(ncid,ncglobal,'model',header.id);
+            end
+            if isfield(header,'model_type')
+                netcdf.putAtt(ncid,ncglobal,'model_type',header.model_type);
+            else
+                netcdf.putAtt(ncid,ncglobal,'model_type','3D Electrical Conductivity Model');
+            end
+            if isfield(header,'model_subtype')
+                netcdf.putAtt(ncid,ncglobal,'model_subtype',header.model_subtype);
+            else
+                netcdf.putAtt(ncid,ncglobal,'model_subtype','Long-period Magnetotelluric');
             end
             netcdf.putAtt(ncid,ncglobal,'data_revision',header.data_revision);
             netcdf.putAtt(ncid,ncglobal,'summary',header.summary);
@@ -565,29 +594,29 @@ classdef netcdfiris < handle
             % Put file in define mode.
             netcdf.reDef(ncid);
             if nargin < 3
-                netcdf.putAtt(ncid,ncglobal,'geospatial_lat_min',sprintf('%6.1f',limits.latmin));
-                netcdf.putAtt(ncid,ncglobal,'geospatial_lat_max',sprintf('%6.1f',limits.latmax));
+                netcdf.putAtt(ncid,ncglobal,'geospatial_lat_min',limits.latmin);
+                netcdf.putAtt(ncid,ncglobal,'geospatial_lat_max',limits.latmax);
             else
-                netcdf.putAtt(ncid,ncglobal,'geospatial_lat_min',geospatial.lat_min);
-                netcdf.putAtt(ncid,ncglobal,'geospatial_lat_max',geospatial.lat_max);
+                netcdf.putAtt(ncid,ncglobal,'geospatial_lat_min',str2double(geospatial.lat_min));
+                netcdf.putAtt(ncid,ncglobal,'geospatial_lat_max',str2double(geospatial.lat_max));
             end
             netcdf.putAtt(ncid,ncglobal,'geospatial_lat_units',geospatial.lat_units);
             netcdf.putAtt(ncid,ncglobal,'geospatial_lat_resolution',geospatial.lat_resolution);
             if nargin < 3
-                netcdf.putAtt(ncid,ncglobal,'geospatial_lon_min',sprintf('%6.1f',limits.lonmin));
-                netcdf.putAtt(ncid,ncglobal,'geospatial_lon_max',sprintf('%6.1f',limits.lonmax));
+                netcdf.putAtt(ncid,ncglobal,'geospatial_lon_min',limits.lonmin);
+                netcdf.putAtt(ncid,ncglobal,'geospatial_lon_max',limits.lonmax);
             else
-                netcdf.putAtt(ncid,ncglobal,'geospatial_lon_min',geospatial.lon_min);
-                netcdf.putAtt(ncid,ncglobal,'geospatial_lon_max',geospatial.lon_max);
+                netcdf.putAtt(ncid,ncglobal,'geospatial_lon_min',str2double(geospatial.lon_min));
+                netcdf.putAtt(ncid,ncglobal,'geospatial_lon_max',str2double(geospatial.lon_max));
             end
             netcdf.putAtt(ncid,ncglobal,'geospatial_lon_units',geospatial.lon_units);
             netcdf.putAtt(ncid,ncglobal,'geospatial_lon_resolution',geospatial.lon_resolution);
             if nargin < 3
-                netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_min',sprintf('%4.0f',limits.depthmin));
-                netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_max',sprintf('%4.0f',limits.depthmax));
+                netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_min',limits.depthmin);
+                netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_max',limits.depthmax);
             else
-                netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_min',geospatial.vertical_min);
-                netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_max',geospatial.vertical_max);
+                netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_min',str2double(geospatial.vertical_min));
+                netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_max',str2double(geospatial.vertical_max));
             end
             netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_units',geospatial.vertical_units);
             netcdf.putAtt(ncid,ncglobal,'geospatial_vertical_positive',geospatial.vertical_positive);
@@ -603,6 +632,9 @@ classdef netcdfiris < handle
             
             fileHeader = struct(...
                    'title','',...
+                    'year','',...
+              'model_type','',...
+           'model_subtype','',...
                       'id','',...
            'data_revision','',...
                 'summary',[''...

@@ -90,7 +90,6 @@ classdef mtdata < latlontools
                     obj.units = '[]';
                     obj.compChar = ['TX ';'TY '];
                 elseif strcmp(obj.type,'Full_Interstation_TF')
-                    disp("Full_Interstation_TF")
                     obj.nComp = 8;
                     obj.Cmplx = 1;
                     obj.units = '[]';
@@ -196,12 +195,14 @@ classdef mtdata < latlontools
             
             if nargin>4            
                 obj.origin = mstruct.origin;
+
+                % recompute x/y or lat/lon depending on which is primary
+                for i=1:obj.nPeriods
+                    obj.d{i} = setOrigin(obj.d{i},mstruct);
+                end
             end
             
-            % recompute x/y or lat/lon depending on which is primary
-            for i=1:obj.nPeriods
-                obj.d{i} = setOrigin(obj.d{i},mstruct);
-            end
+
             
         end
 
@@ -294,6 +295,7 @@ classdef mtdata < latlontools
                 for i = 1:length(obj.d{j}.siteChar)
                     obj.d{j}.siteChar(i,:) = [prefix char(sitenames(i,:))];
                 end
+                obj.d{j}.siteChar = cellstr(obj.d{j}.siteChar);
             end
             
         end
@@ -530,17 +532,21 @@ classdef mtdata < latlontools
             ncomp = size(newinfo.comp,1);
             
             newinfo.data = zeros(nsites,length(periods),ncomp) + 1i*zeros(nsites,length(periods),ncomp);
-            
+            newinfo.err = zeros(nsites,length(periods),ncomp);
+
             for j = 1:nsites
                 for k = 1:ncomp
                     ind = ~isnan(squeeze(oldinfo.data(j,:,k)));
-                    newinfo.data(j,:,k) = interp1((log10(oldperiods(ind))),squeeze(oldinfo.data(j,ind,k)).*sqrt(oldperiods(ind)),log10(periods),method,'extrap');
-                    newinfo.data(j,:,k) = squeeze(newinfo.data(j,:,k))./sqrt(periods);
+                    if length(ind)<2
+                        newinfo.data(j,:,k) = NaN;
+                    else
+                        newinfo.data(j,:,k) = interp1((log10(oldperiods(ind))),squeeze(oldinfo.data(j,ind,k)).*sqrt(oldperiods(ind)),log10(periods),method,'extrap');
+                        newinfo.data(j,:,k) = squeeze(newinfo.data(j,:,k))./sqrt(periods);
+                    end
                 end
             end
             
-            if ~obj.predicted            
-                newinfo.err = zeros(nsites,length(periods),ncomp);
+            if ~obj.predicted                            
                 for j = 1:nsites
                     for k = 1:ncomp
                         ind = ~isnan(squeeze(oldinfo.err(j,:,k)));
@@ -570,7 +576,120 @@ classdef mtdata < latlontools
             newobj.nSites = nsites;
             
         end
-        
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function objarray = split(obj,N)
+            % objarray = split(obj,N)
+            % 
+            % A crude method to split the data structure into parts; this
+            % is done by splitting the site list into N segments. Needed
+            % to combat virtual memory issues for very large files.
+            % Note that it is unfortunately so inefficient on large files
+            % that it's probably not even worth keeping.
+            
+            objarray(1:N) = obj;
+
+            n_sites = floor(obj.nSites/N); i = 1;
+                        
+            while i < N
+                isites = ((i-1)*n_sites+1:i*n_sites);
+                for k = 1:obj.nPeriods
+                    objarray(i).d{k}.siteLoc = obj.d{k}.siteLoc(isites,:);
+                    objarray(i).d{k}.siteChar = obj.d{k}.siteChar{isites};
+                    objarray(i).d{k}.TF = obj.d{k}.TF(isites,:);
+                    objarray(i).d{k}.TFerr = obj.d{k}.TFerr(isites,:);
+                    objarray(i).d{k}.lat = obj.d{k}.lat(isites);
+                    objarray(i).d{k}.lon = obj.d{k}.lon(isites);
+                    objarray(i).d{k}.nSite = n_sites;
+                end
+                objarray(i).nSites = n_sites;
+            end
+
+            % and now the remainder
+            isites = ((N-1)*n_sites+1:obj.nSites);
+            for k = 1:obj.nPeriods
+                objarray(i).d{k}.siteLoc = obj.d{k}.siteLoc(isites,:);
+                objarray(i).d{k}.siteChar = obj.d{k}.siteChar{isites};
+                objarray(i).d{k}.TF = obj.d{k}.TF(isites,:);
+                objarray(i).d{k}.TFerr = obj.d{k}.TFerr(isites,:);
+                objarray(i).d{k}.lat = obj.d{k}.lat(isites);
+                objarray(i).d{k}.lon = obj.d{k}.lon(isites);
+                objarray(i).d{k}.nSite = length(isites);
+            end
+            objarray(i).nSites = length(isites);
+
+            %Unfortunately, this is prohibitively inefficient for large
+            %data sets...
+            %if ~isempty(newobj.v)
+            %    newobj = newobj.regroup;
+            %end
+            
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function newobj = remove_duplicates(obj)
+            % newobj = remove_duplicates(obj)
+            % 
+            % removes duplicate sites from the summary (v,apres,phase)
+
+
+            newobj = obj;
+            for k = 1:obj.nPeriods
+                [~,i] = unique(obj.d{k}.siteChar);
+                dupl = setdiff(1:obj.d{k}.nSite,i);
+                newobj.d{k}.siteChar(dupl) = [];
+                newobj.d{k}.siteLoc(dupl,:) = [];
+                newobj.d{k}.lat(dupl) = [];
+                newobj.d{k}.lon(dupl) = [];
+                newobj.d{k}.TF(dupl,:) = [];
+                newobj.d{k}.TFerr(dupl,:) = [];
+                newobj.d{k}.nSite = length(i);
+            end 
+
+            newobj = newobj.regroup;
+
+            %[~,i] = unique(obj.v.code);
+            %dupl = setdiff(1:obj.nSites,i);
+
+            % newobj.v.code(dupl) = [];
+            % newobj.v.loc(dupl,:) = [];
+            % newobj.v.lon(dupl) = [];
+            % newobj.v.lat(dupl) = [];
+            % newobj.v.data(dupl,:,:) = [];
+            % if isfield(obj.v,'resp')
+            %     obj.v.resp(dupl,:,:) = [];
+            % end
+            % newobj.v.err(dupl,:,:) = [];
+            % if isfield(obj.v,'res')
+            %     obj.v.res(dupl,:,:) = [];
+            % end
+            % newobj.nSites = length(i);
+            % 
+            % if ~isempty(obj.apres.xy)
+            %     obj.apres.xy(dupl,:) = [];
+            %     if isfield(obj.apres,'xy_re')
+            %         obj.apres.xy_re(dupl,:) = [];
+            %     end
+            %     obj.apres.xy_se(dupl,:) = [];
+            %     obj.apres.yx(dupl,:) = [];
+            %     if isfield(obj.apres,'yx_re')
+            %         obj.apres.yx_re(dupl,:) = [];
+            %     end
+            %     obj.apres.yx_se(dupl,:) = [];
+            % end
+            % 
+            % if ~isempty(obj.phase.xy)
+            %     obj.phase.xy(dupl,:) = [];
+            %     if isfield(obj.phase,'xy_re')
+            %         obj.phase.xy_re(dupl,:) = [];
+            %     end
+            %     obj.phase.xy_se(dupl,:) = [];
+            %     obj.phase.yx(dupl,:) = [];
+            %     if isfield(obj.phase,'yx_re')
+            %         obj.phase.yx_re(dupl,:) = [];
+            %     end
+            %     obj.phase.yx_se(dupl,:) = [];
+            % end            
+        end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function newobj = subset(obj,condition)
             % newobj = subset(obj,condition)
@@ -594,6 +713,7 @@ classdef mtdata < latlontools
             %end
             
             ii = zeros(obj.nPeriods,obj.nSites);
+            allsites = obj.getSites;
             
             if ischar(condition)
                 str = condition;
@@ -609,15 +729,10 @@ classdef mtdata < latlontools
                 end
             elseif iscell(condition)
                 str = condition;
-                nSelect = size(str,1);
                 for k = 1:obj.nPeriods
-                    for i = 1:obj.d{k}.nSite
-                        for j = 1:nSelect                     
-                            if ~isempty(find(contains(str,strtrim(obj.d{k}.siteChar{i})),1))
-                                ii(k,i) = i;
-                            end
-                        end
-                    end
+                    mystr = str(ismember(str,obj.d{k}.siteChar));
+                    i = find(ismember(allsites,mystr));
+                    ii(k,i) = i;
                 end                
             elseif isstruct(condition)
                 lims = condition;
@@ -1027,7 +1142,6 @@ classdef mtdata < latlontools
             % 3) SI units for E/H: [V/m]/[A/m] = Ohm
                         
             for i=1:obj.nPeriods
-                obj.d{i}.units;
                 obj.d{i} = changeUnits(obj.d{i},newunits);
             end
             obj.units = newunits;
@@ -1066,7 +1180,9 @@ classdef mtdata < latlontools
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function obj = setErrorFloor(obj,f)
-            % set the error floor to fraction f of the data;
+            % Set relative (or absolute) error according to standard MT
+            % practices for each data type
+            % set the error floor to fraction f of the data (or abs f);
             % save the real errors in "dataErrors"
             for i=1:obj.nPeriods
                 obj.d{i} = setErrorFloor(obj.d{i},f);
@@ -1141,8 +1257,10 @@ classdef mtdata < latlontools
             
             if isa(grid,'xygrid')
                 % if this isn't a latlon grid, need the origin
-                if nargin < 5
+                if nargin > 3 && nargin < 5
                     error('Usage: dat = mtdata.gridCells(grid,per,''land'',mstruct)');
+                elseif nargin <= 3
+                    landORsea = 'all';
                 end
             end
             
@@ -1151,15 +1269,14 @@ classdef mtdata < latlontools
             end
             
             for k=1:obj.nPeriods
-                if isa(grid,'xygrid')
+                if nargin < 5
+                    obj.d{k} = gridCells(obj.d{k},grid,landORsea);
+                else
                     obj.d{k} = gridCells(obj.d{k},grid,landORsea,mstruct);
+                end
+                if isa(grid,'xygrid')
                     obj.d{k}.primaryCoords = 'xy';
                 else
-                    if nargin < 5
-                        obj.d{k} = gridCells(obj.d{k},grid,landORsea);
-                    else
-                        obj.d{k} = gridCells(obj.d{k},grid,landORsea,mstruct);
-                    end                 
                     obj.d{k}.primaryCoords = 'latlon';
                 end
                 obj.d{k}.T = per(k);
@@ -1248,24 +1365,62 @@ classdef mtdata < latlontools
             %  Usage : obj = obj.delete(siteName)
             %
             % removes a site selected by siteChar or index
-            % CODE NOT FINISHED
+            % from the summary (v, apres, phase) only
+            % does not modify d{} data structure!
             
             if isempty(obj.v.code)
                 obj = obj.regroup;
             end
             
             if ischar(siteName)
-                ind = strmatch(strtrim(siteName),strtrim(strjust(obj.v.code,'left')));
+                ind = find(ismember(obj.v.code,cellstr(siteName)));
             else
                 ind = siteid;
             end
-            %disp(['Deleting site #' num2str(ind) ' from mtdata']);
             
-%             nsites = size(obj.v.code,1);
-%             for i = 1:nsites
-%                 disp(['Extract site #' num2str(i) ' from mtdata:']);
-%                 tflist{i} = obj.get(obj.v.code(i,:));
-%             end
+            for i = 1:length(ind)
+                disp(['Deleting site #' num2str(ind(i)) ' from mtdata']);
+            end
+            obj.nSites = obj.nSites - length(ind);
+            
+            obj.v.data(ind,:,:) = [];
+            if isfield(obj.v,'resp')
+                obj.v.resp(ind,:,:) = [];
+            end
+            obj.v.err(ind,:,:) = [];
+            obj.v.code(ind) = [];
+            obj.v.loc(ind,:) = [];
+            obj.v.lon(ind) = [];
+            obj.v.lat(ind) = [];
+            if isfield(obj.v,'res')
+                obj.v.res(ind,:,:) = [];
+            end
+
+            if ~isempty(obj.apres.xy)
+                obj.apres.xy(ind,:) = [];
+                if isfield(obj.apres,'xy_re')
+                    obj.apres.xy_re(ind,:) = [];
+                end
+                obj.apres.xy_se(ind,:) = [];
+                obj.apres.yx(ind,:) = [];
+                if isfield(obj.apres,'yx_re')
+                    obj.apres.yx_re(ind,:) = [];
+                end
+                obj.apres.yx_se(ind,:) = [];
+            end
+
+            if ~isempty(obj.phase.xy)
+                obj.phase.xy(ind,:) = [];
+                if isfield(obj.phase,'xy_re')
+                    obj.phase.xy_re(ind,:) = [];
+                end
+                obj.phase.xy_se(ind,:) = [];
+                obj.phase.yx(ind,:) = [];
+                if isfield(obj.phase,'yx_re')
+                    obj.phase.yx_re(ind,:) = [];
+                end
+                obj.phase.yx_se(ind,:) = [];
+            end            
             
         end
         
@@ -1278,14 +1433,14 @@ classdef mtdata < latlontools
             for k = 1:obj.nPeriods
                 ibad = zeros(1,obj.d{k}.nSite);
                 for i = 1:obj.d{k}.nSite
-                    if isempty(deblank(obj.d{k}.siteChar(i,:)))
+                    if isempty(deblank(char(obj.d{k}.siteChar{i})))
                         %disp(['Deleting site #' num2str(ind) ' from mtdata period #' num2str(k)]);
                         ibad(i) = 1;
                     end
                 end
                 ii = setdiff(1:obj.d{k}.nSite,find(ibad));
                 obj.d{k}.siteLoc = obj.d{k}.siteLoc(ii,:);
-                obj.d{k}.siteChar = obj.d{k}.siteChar(ii,:);
+                obj.d{k}.siteChar = obj.d{k}.siteChar{ii};
                 obj.d{k}.TF = obj.d{k}.TF(ii,:);
                 obj.d{k}.TFerr = obj.d{k}.TFerr(ii,:);
                 obj.d{k}.lon = obj.d{k}.lon(ii);
@@ -1502,6 +1657,42 @@ classdef mtdata < latlontools
             
         end
         
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function obj = merge(obj1,obj2)
+            % obj = merge(obj1,obj2)
+            % 
+            % assumes the same periods for both inputs
+            % crude and not all tests are implemented
+            
+            if obj1.nPeriods ~= obj2.nPeriods
+                warning('Merging two mtdata objects that have different periods');
+            end
+
+            if ~strcmp(obj1.type,obj2.type)
+                warning('Merging two mtdata objects whose data types that are not consistent');
+            end
+
+            if ~strcmp(obj1.units,obj2.units)
+                warning('Merging two mtdata objects whose units are not consistent');
+            end
+
+            if obj1.signConvention ~= obj2.signConvention
+                warning('Merging two mtdata objects whose sign conventions are not consistent');
+            end
+
+            if obj1.origin ~= obj2.origin
+                warning('Merging two mtdata objects whose origins are not consistent!!!');
+            end
+
+            obj = obj1;
+            for i=1:obj.nPeriods
+                obj.d{i} = merge(obj1.d{i},obj2.d{i});
+            end
+            obj.nSites = obj1.nSites + obj2.nSites;
+            obj = obj.regroup;
+
+        end
+
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function result = isComplex(dataType)
             %  Usage : result = isComplex(dataType)

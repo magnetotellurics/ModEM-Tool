@@ -417,7 +417,7 @@ classdef mtdataplot < mtdata
             f(1).PaperPosition = [1,1,24,16];
             
             if plotApres
-                InterpPlot(info.lon,info.lat,data1,'',str1,[0 4],1);
+                InterpPlot(info.lon,info.lat,data1,'',str1,[0 4],0.1);
                 colormap(flip(redblue3));
             end
             
@@ -426,7 +426,7 @@ classdef mtdataplot < mtdata
             f(2).PaperPosition = [1,1,24,16];
             if ~separateFigs && plotPhase; subplot(2,1,2); end
             if plotPhase
-                InterpPlot(info.lon,info.lat,data2,'',str2,clims2,1);
+                InterpPlot(info.lon,info.lat,data2,'',str2,clims2,0.1);
                 colormap redblue3;
             end
             
